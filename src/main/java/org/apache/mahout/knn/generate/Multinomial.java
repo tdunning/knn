@@ -24,6 +24,14 @@ public class Multinomial<T> implements Sampler<T> {
     for (T t : counts.elementSet()) {
       things.add(new WeightedThing<T>(t, counts.count(t) / n));
     }
+    init(width, things);
+  }
+
+  public Multinomial(int width, Iterable<WeightedThing<T>> things) {
+    init(width, Lists.newArrayList(things));
+  }
+
+  private void init(int width, List<WeightedThing<T>> things) {
     Collections.sort(things);
 
     // now convert to cumulative weights to help with encoding as a tree
@@ -84,6 +92,8 @@ public class Multinomial<T> implements Sampler<T> {
       // if that chunk has only one element in it, that element will be a leaf
       int base = 0;
       Node<T> r = new Node<T>();
+      r.low = low;
+      r.high = high;
       final double step = (high - low) / width;
       for (int i = 0; i < width; i++) {
         double cutoff = Math.min(1, low + step);
@@ -113,6 +123,7 @@ public class Multinomial<T> implements Sampler<T> {
   }
 
   private static class Node<T> implements SearchTree<T> {
+    double low, high;
     List<SearchTree<T>> children;
 
     public Node() {
@@ -130,7 +141,7 @@ public class Multinomial<T> implements Sampler<T> {
       if (p > 1) {
         p = 1;
       }
-      int slot = (int) (p * children.size());
+      int slot = (int) ((p - low) / (high - low) * children.size());
       if (slot == children.size()) {
         slot = slot - 1;
       }
@@ -168,20 +179,6 @@ public class Multinomial<T> implements Sampler<T> {
 
     public T find(double p) {
       return value;
-    }
-  }
-
-  private static class WeightedThing<T> implements Comparable<WeightedThing<T>> {
-    double weight;
-    T value;
-
-    public WeightedThing(T thing, double weight) {
-      this.value = thing;
-      this.weight = weight;
-    }
-
-    public int compareTo(WeightedThing<T> other) {
-      return Double.compare(this.weight, other.weight);
     }
   }
 }
