@@ -21,8 +21,18 @@ import java.util.Random;
 
 public class Normal implements Sampler<Double> {
   private Random rand = new Random();
+  private double mean = 0;
+  private double sd = 1;
+
+  public Normal() {
+  }
+
+  public Normal(double mean, double sd) {
+    this.mean = mean;
+    this.sd = sd;
+  }
 
   public Double sample() {
-    return rand.nextGaussian();
+    return rand.nextGaussian() * sd + mean;
   }
 }

@@ -20,12 +20,26 @@ package org.apache.mahout.knn.generate;
 import org.apache.commons.math.MathException;
 import org.apache.commons.math.distribution.NormalDistribution;
 import org.apache.commons.math.distribution.NormalDistributionImpl;
-import org.junit.Assert;
+import org.apache.mahout.math.stats.OnlineSummarizer;
 import org.junit.Test;
 
 import java.util.Arrays;
 
+import static org.junit.Assert.assertEquals;
+
 public class NormalTest {
+  @Test
+  public void testOffset() {
+    OnlineSummarizer s = new OnlineSummarizer();
+    Sampler<Double> sampler = new Normal(2, 5);
+    for (int i = 0; i < 10001; i++) {
+      s.add(sampler.sample());
+    }
+
+    assertEquals(2, s.getMean(), 0.02 * s.getSD());
+    assertEquals(5, s.getSD(), 0.02);
+  }
+
   @Test
   public void testSample() throws MathException {
     double[] data = new double[10001];
@@ -37,6 +51,6 @@ public class NormalTest {
 
     NormalDistribution reference = new NormalDistributionImpl();
 
-    Assert.assertEquals("Median", reference.inverseCumulativeProbability(0.5), data[5000], 0.02);
+    assertEquals("Median", reference.inverseCumulativeProbability(0.5), data[5000], 0.02);
   }
 }
