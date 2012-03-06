@@ -28,11 +28,11 @@ import java.util.Random;
  * Samples from a Poisson distribution.  Should probably not be used for lambda > 1000 or so.
  */
 public class PoissonSampler extends AbstractSamplerFunction {
-  double limit = 1;
+  private double limit = 1;
 
   private Multinomial<Integer> partial;
-  private Random gen = new Random();
-  private PoissonDistribution pd;
+  private final Random gen = new Random();
+  private final PoissonDistribution pd;
 
   public PoissonSampler(double lambda) {
     pd = new PoissonDistributionImpl(lambda);
@@ -42,7 +42,7 @@ public class PoissonSampler extends AbstractSamplerFunction {
     return sample(gen.nextDouble());
   }
 
-  public double sample(double u) {
+  double sample(double u) {
     if (u < limit) {
       List<WeightedThing<Integer>> steps = Lists.newArrayList();
       limit = 1;

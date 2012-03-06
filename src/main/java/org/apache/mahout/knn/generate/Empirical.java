@@ -26,11 +26,12 @@ import java.util.Random;
  * Samples from an empirical cumulative distribution.
  */
 public class Empirical extends AbstractSamplerFunction {
-  private Random gen = new Random();
-  private boolean exceedMinimum;
-  private boolean exceedMaximum;
+  private final Random gen = new Random();
+  private final boolean exceedMinimum;
+  private final boolean exceedMaximum;
 
-  double[] x, y;
+  private final double[] x;
+  private final double[] y;
   private final int n;
 
   /**

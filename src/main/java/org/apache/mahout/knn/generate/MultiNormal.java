@@ -29,9 +29,9 @@ import java.util.Random;
  * Samples from a multi-variate normal distribution.
  */
 public class MultiNormal implements Sampler<Vector> {
-  private Random gen = new Random();
-  private Matrix a;
-  private Vector offset;
+  private final Random gen = new Random();
+  private final Matrix a;
+  private final Vector offset;
 
   public MultiNormal(Matrix a) {
     this(a, null);

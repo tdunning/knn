@@ -31,7 +31,7 @@ import java.util.Random;
  */
 public class Multinomial<T> implements Sampler<T> {
   private SearchTree<T> tree;
-  private Random rand = new Random();
+  private final Random rand = new Random();
   private static final double EPSILON = 1e-10;
 
   public Multinomial(Multiset<T> counts, int width) {
@@ -141,7 +141,7 @@ public class Multinomial<T> implements Sampler<T> {
 
   private static class Node<T> implements SearchTree<T> {
     double low, high;
-    List<SearchTree<T>> children;
+    final List<SearchTree<T>> children;
 
     public Node() {
       children = Lists.newArrayList();
@@ -167,8 +167,9 @@ public class Multinomial<T> implements Sampler<T> {
   }
 
   private static class Triplet<T> implements SearchTree<T> {
-    double p1, p2;
-    List<T> values;
+    final double p1;
+    final double p2;
+    final List<T> values;
 
     private Triplet(List<T> values, double p1, double p2) {
       this.values = values;
@@ -188,7 +189,7 @@ public class Multinomial<T> implements Sampler<T> {
   }
 
   private static class Leaf<T> implements SearchTree<T> {
-    T value;
+    final T value;
 
     public Leaf(T value) {
       this.value = value;

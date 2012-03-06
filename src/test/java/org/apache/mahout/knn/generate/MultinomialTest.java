@@ -29,10 +29,6 @@ import java.util.Map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-/**
- * Created by IntelliJ IDEA. User: tdunning Date: 2/16/12 Time: 3:19 PM To change this template use
- * File | Settings | File Templates.
- */
 public class MultinomialTest {
   @Test(expected = IllegalArgumentException.class)
   public void testNoValues() {

@@ -35,11 +35,11 @@ import java.util.Random;
  * See http://mlg.eng.cam.ac.uk/zoubin/talks/turin09.pdf for details
  */
 public class IndianBuffet<T> implements Sampler<List<T>> {
-  private List<Integer> count = Lists.newArrayList();
+  private final List<Integer> count = Lists.newArrayList();
   private int documents = 0;
-  private double alpha;
+  private final double alpha;
   private WordFunction<T> converter = null;
-  private Random gen = new Random();
+  private final Random gen = new Random();
 
   public IndianBuffet(double alpha, WordFunction<T> converter) {
     this.alpha = alpha;
@@ -109,13 +109,13 @@ public class IndianBuffet<T> implements Sampler<List<T>> {
    * to a token like w_92463 for big integers.
    */
   public static class WordConverter implements WordFunction<String> {
-    private Splitter onSpace = Splitter.on(CharMatcher.WHITESPACE).omitEmptyStrings().trimResults();
+    private final Splitter onSpace = Splitter.on(CharMatcher.WHITESPACE).omitEmptyStrings().trimResults();
     private List<String> words;
 
     public WordConverter() {
       try {
         words = Resources.readLines(Resources.getResource("words.txt"), Charsets.UTF_8, new LineProcessor<List<String>>() {
-          List<String> words = Lists.newArrayList();
+          final List<String> words = Lists.newArrayList();
 
           public boolean processLine(String line) throws IOException {
             Iterables.addAll(words, onSpace.split(line));
