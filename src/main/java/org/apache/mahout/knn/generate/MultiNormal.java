@@ -55,7 +55,7 @@ public class MultiNormal implements Sampler<Vector> {
     Vector v = new DenseVector(a.numCols()).assign(
       new DoubleFunction() {
         @Override
-        public double apply(double arg1) {
+        public double apply(double ignored) {
           return gen.nextGaussian();
         }
       }

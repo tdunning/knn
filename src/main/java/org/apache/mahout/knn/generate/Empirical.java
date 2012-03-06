@@ -18,13 +18,14 @@
 package org.apache.mahout.knn.generate;
 
 import com.google.common.base.Preconditions;
+import org.apache.mahout.math.function.DoubleFunction;
 
 import java.util.Random;
 
 /**
  * Samples from an empirical cumulative distribution.
  */
-public class Empirical implements Sampler<Double> {
+public class Empirical extends AbstractSamplerFunction {
   private Random gen = new Random();
   private boolean exceedMinimum;
   private boolean exceedMaximum;

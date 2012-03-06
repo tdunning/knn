@@ -17,29 +17,23 @@
 
 package org.apache.mahout.knn.generate;
 
-import org.apache.commons.math.distribution.PoissonDistribution;
-import org.apache.commons.math.distribution.PoissonDistributionImpl;
-import org.junit.Test;
+import org.apache.mahout.math.function.DoubleFunction;
 
-import static org.junit.Assert.assertEquals;
-
-public class PoissonSamplerTest {
-  @Test
-  public void testBasics() {
-    for (double alpha : new double[]{0.1, 1, 10, 100}) {
-      checkDistribution(new PoissonSampler(alpha), alpha);
-    }
+/**
+ * This shim allows samplers to be used to initialize vectors.
+ */
+public abstract class AbstractSamplerFunction implements Sampler<Double>, DoubleFunction {
+  /**
+   * Apply the function to the argument and return the result
+   *
+   * @param ignored Ignored argument
+   * @return A sample from this distribution.
+   */
+  @Override
+  public double apply(double ignored) {
+    return sample();
   }
 
-  private void checkDistribution(PoissonSampler pd, double alpha) {
-    int[] count = new int[(int) Math.max(10, 5 * alpha)];
-    for (int i = 0; i < 10000; i++) {
-      count[pd.sample().intValue()]++;
-    }
-
-    PoissonDistribution ref = new PoissonDistributionImpl(alpha);
-    for (int i = 0; i < count.length; i++) {
-      assertEquals(ref.probability(i), count[i] / 10000.0, 2e-2);
-    }
-  }
+  @Override
+  public abstract Double sample();
 }

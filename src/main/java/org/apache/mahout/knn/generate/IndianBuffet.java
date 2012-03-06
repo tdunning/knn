@@ -57,7 +57,7 @@ public class IndianBuffet<T> implements Sampler<List<T>> {
   public List<T> sample() {
     List<T> r = Lists.newArrayList();
     if (documents == 0) {
-      int n = new PoissonSampler(alpha).sample();
+      double n = new PoissonSampler(alpha).sample();
       for (int i = 0; i < n; i++) {
         r.add(converter.convert(i));
         count.add(1);
@@ -73,7 +73,7 @@ public class IndianBuffet<T> implements Sampler<List<T>> {
         }
         i++;
       }
-      final int newItems = new PoissonSampler(alpha / documents).sample();
+      final int newItems = new PoissonSampler(alpha / documents).sample().intValue();
       for (int j = 0; j < newItems; j++) {
         r.add(converter.convert(i + j));
         count.add(1);

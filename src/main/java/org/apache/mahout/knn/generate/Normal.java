@@ -19,7 +19,7 @@ package org.apache.mahout.knn.generate;
 
 import java.util.Random;
 
-public class Normal implements Sampler<Double> {
+public class Normal extends AbstractSamplerFunction {
   private Random rand = new Random();
   private double mean = 0;
   private double sd = 1;
