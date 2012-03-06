@@ -92,15 +92,25 @@ public class Empirical implements Sampler<Double> {
   public double sample(double u) {
     if (exceedMinimum && u < x[0]) {
       // generate from left tail
+      if (u == 0) {
+        u = 1e-16;
+      }
       return y[0] + Math.log(u / x[0]) * x[0] * (y[1] - y[0]) / (x[1] - x[0]);
     } else if (exceedMaximum && u > x[n - 1]) {
+      if (u == 1) {
+        u = 1 - 1e-16;
+      }
       // generate from right tail
-      return y[n - 1] - Math.log((1 - u) / (1 - x[n - 1])) * (1 - x[n - 1]) * (y[n - 1] - y[n - 2]) / (x[n - 1] - x[n - 2]);
+      final double dy = y[n - 1] - y[n - 2];
+      final double dx = x[n - 1] - x[n - 2];
+      return y[n - 1] - Math.log((1 - u) / (1 - x[n - 1])) * (1 - x[n - 1]) * dy / dx;
     } else {
       // linear interpolation
       for (int i = 1; i < n; i++) {
         if (x[i] > u) {
-          return (y[i] - y[i - 1]) * (u - x[i - 1]) / (x[i] - x[i - 1]) + y[i - 1];
+          final double dy = y[i] - y[i - 1];
+          final double dx = x[i] - x[i - 1];
+          return y[i - 1] + (u - x[i - 1]) * dy / dx;
         }
       }
       throw new RuntimeException(String.format("Can't happen (%.3f is not in [%.3f,%.3f]", u, x[0], x[n - 1]));
