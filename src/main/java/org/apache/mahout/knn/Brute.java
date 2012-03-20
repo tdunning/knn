@@ -31,8 +31,13 @@ import java.util.PriorityQueue;
  * Search for nearest neighbors using complete search.
  */
 public class Brute {
+  // matrix of vectors for comparison
   private final Matrix reference;
+
+  // weight vectors for each coordinate
   private final Vector weight;
+
+  // blocking factor
   private final int block;
 
   public Brute(int block, Matrix reference, Vector weight) {
@@ -53,26 +58,43 @@ public class Brute {
     this(50, reference, null);
   }
 
-  public PriorityQueue<Result> search(Vector v, int n) {
-    return searchInternal(v, reference, n, new PriorityQueue<Result>());
+  /**
+   * Searches for N neighbors of a single vector.
+   *
+   *
+   * @param v       The vector query to search for.
+   * @param n       The number of neighbors.
+   * @return        A list of neighbors ordered closest first.
+   */
+  public List<Result> search(Vector v, int n) {
+    return Lists.reverse(Lists.newArrayList(searchInternal(v, reference, n, new PriorityQueue<Result>())));
   }
 
-  private PriorityQueue<Result> searchInternal(Vector v, Matrix referenceBlock, int n, PriorityQueue<Result> q) {
-    for (MatrixSlice slice : referenceBlock) {
+  /**
+   * Scans a matrix one row at a time for neighbors of the query vector.
+   * @param query        The query vector.
+   * @param reference    The matrix to scan.
+   * @param n            The number of results to return.
+   * @param q            The queue to augment with results.
+   * @return             The modified queue.
+   */
+  private PriorityQueue<Result> searchInternal(Vector query, Matrix reference, int n, PriorityQueue<Result> q) {
+    for (MatrixSlice row : reference) {
       double r;
       if (weight != null) {
-        r = v.minus(slice.vector()).aggregate(weight, Functions.PLUS, new DoubleDoubleFunction() {
+        r = query.minus(row.vector()).aggregate(weight, Functions.PLUS, new DoubleDoubleFunction() {
           @Override
           public double apply(double w, double diff) {
             return w * diff * diff;
           }
         });
       } else {
-        r = v.minus(slice.vector()).norm(2);
+        r = query.minus(row.vector()).norm(2);
       }
 
+      // only insert if the result is better than the worst in the queue or the queue isn't full
       if (q.size() < n || q.peek().score > r) {
-        q.add(new Result(slice.index(), r));
+        q.add(new Result(row.index(), r));
 
         while (q.size() > n) {
           q.poll();
@@ -82,12 +104,19 @@ public class Brute {
     return q;
   }
 
-  public List<PriorityQueue<Result>> search(Matrix query, int n) {
+  /**
+   * Searches with a matrix full of queries.
+   * @param query    The queries to search for.
+   * @param n        The number of results to return for each query.
+   * @return         A list of result lists.
+   */
+  public List<List<Result>> search(Matrix query, int n) {
     List<PriorityQueue<Result>> q = Lists.newArrayList();
 
     final int queryRows = query.rowSize();
     final int referenceRows = reference.rowSize();
 
+    // blocking is intended to allow better memory locality, but it seems to make little (5%) difference
     for (int i = 0; i < queryRows; i += block) {
       int queryBlockSize = Math.min(block, queryRows - i);
       final Matrix queryChunk = query.viewPart(i, queryBlockSize, 0, query.columnSize());
@@ -104,7 +133,13 @@ public class Brute {
         }
       }
     }
-    return q;
+
+    // convert the results to lists.
+    List<List<Result>> r = Lists.newArrayList();
+    for (PriorityQueue<Result> results : q) {
+      r.add(Lists.reverse(Lists.newArrayList(results)));
+    }
+    return r;
   }
 
   public class Result implements Comparable<Result> {
