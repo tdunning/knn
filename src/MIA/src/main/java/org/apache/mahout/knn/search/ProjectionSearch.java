@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.TreeSet;
 
 /**
- * Does approximate nearest neighbor dude search by projecting the data.
+ * Does approximate nearest neighbor dudes search by projecting the data.
  */
 public class ProjectionSearch {
     private final List<TreeSet<Vector>> vectors;
