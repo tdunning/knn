@@ -54,8 +54,8 @@ public class MultiNormalTest {
     }
 
     for (int j = 0; j < 3; j++) {
-      assertEquals(0, s[j].getMean() / s[j].getSD(), 0.02);
-      assertEquals(0, cross[j].getMean() / cross[j].getSD(), 0.02);
+      assertEquals(0, s[j].getMean() / s[j].getSD(), 0.04);
+      assertEquals(0, cross[j].getMean() / cross[j].getSD(), 0.04);
     }
   }
 }

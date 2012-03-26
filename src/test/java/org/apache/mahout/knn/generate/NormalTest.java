@@ -36,8 +36,8 @@ public class NormalTest {
       s.add(sampler.sample());
     }
 
-    assertEquals(2, s.getMean(), 0.02 * s.getSD());
-    assertEquals(5, s.getSD(), 0.02);
+    assertEquals(String.format("m = %.3f, sd = %.3f", s.getMean(), s.getSD()), 2, s.getMean(), 0.02 * s.getSD());
+    assertEquals(5, s.getSD(), 0.08);
   }
 
   @Test
@@ -51,6 +51,6 @@ public class NormalTest {
 
     NormalDistribution reference = new NormalDistributionImpl();
 
-    assertEquals("Median", reference.inverseCumulativeProbability(0.5), data[5000], 0.02);
+    assertEquals("Median", reference.inverseCumulativeProbability(0.5), data[5000], 0.04);
   }
 }
