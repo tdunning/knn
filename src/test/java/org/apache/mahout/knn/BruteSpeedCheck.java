@@ -43,12 +43,14 @@ public class BruteSpeedCheck {
     }
     System.out.printf("generated query matrix\n");
 
-    for (int block : new int[]{100, 1, 5, 10, 20, 50, 100}) {
-      Brute search = new Brute(ref, block);
-      long t0 = System.nanoTime();
-      search.search(query, 50);
-      long t1 = System.nanoTime();
-      System.out.printf("%d blocksize gives elapsed time = %.2f\n", block, (t1 - t0) / 1e9);
+    for (int threads : new int[]{1, 2, 3, 4, 5, 6, 10, 20, 50}) {
+      for (int block : new int[]{1, 10, 50}) {
+        Brute search = new Brute(ref);
+        long t0 = System.nanoTime();
+        search.search(query, block, threads);
+        long t1 = System.nanoTime();
+        System.out.printf("%d\t%d\t%.2f\n", threads, block, (t1 - t0) / 1e9);
+      }
     }
   }
 }
