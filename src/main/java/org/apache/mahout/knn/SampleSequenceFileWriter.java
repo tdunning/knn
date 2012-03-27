@@ -24,7 +24,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.mahout.knn.generate.MultiNormal;
-import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.VectorWritable;
 
@@ -40,8 +39,8 @@ public class SampleSequenceFileWriter {
         System.getProperties().setProperty("java.security.krb5.kdc", "");
         Configuration conf = new Configuration();
         FileSystem fs = FileSystem.getLocal(conf);
-        SequenceFile.Writer out = new SequenceFile.Writer(fs, conf, new Path(fileName), IntWritable.class, VectorWritable.class);
-        MultiNormal s = new MultiNormal(new DenseVector(dimension).assign(1));
+        SequenceFile.Writer out = SequenceFile.createWriter(fs, conf, new Path(fileName), IntWritable.class, VectorWritable.class);
+        MultiNormal s = new MultiNormal(dimension);
         VectorWritable vw = new VectorWritable();
         List<Vector> r = Lists.newArrayList();
         for (int i = 0; i < records; i++) {
