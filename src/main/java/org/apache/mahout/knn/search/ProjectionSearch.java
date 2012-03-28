@@ -33,9 +33,7 @@ import org.apache.mahout.math.function.Functions;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.ArrayList;
 import java.util.TreeSet;
-import java.util.HashSet;
 
 /**
  * Does approximate nearest neighbor dudes search by projecting the data.
@@ -93,13 +91,6 @@ public class ProjectionSearch {
             s.add(v);
         }
     }
-    
-    public static void removeDuplicate(List list)
-    {
-    HashSet h = new HashSet(list);
-    list.clear();
-    list.addAll(h);
-    }
 
     public List<Vector> search(final Vector query, int n, int searchSize) {
         Multiset<Vector> candidates = HashMultiset.create();
@@ -107,11 +98,7 @@ public class ProjectionSearch {
             Iterables.addAll(candidates, Iterables.limit(v.tailSet(query, true), searchSize));
             Iterables.addAll(candidates, Iterables.limit(v.headSet(query, false).descendingSet(), searchSize));
         }
-        System.out.print(top.size());
-        removeDuplicate(top);
-        System.out.print(" ");
-        System.out.println(top.size());
-
+        System.out.printf("%d %d\n", candidates.size(), candidates.elementSet().size());
 
         // if searchSize * vectors.size() is small enough not to cause much memory pressure, this is probably
         // just as fast as a priority queue here.

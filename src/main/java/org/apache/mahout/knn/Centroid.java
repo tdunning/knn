@@ -40,7 +40,7 @@ public class Centroid extends AbstractVector {
         key = original.getKey();
     }
 
-    protected Centroid(int key, Vector initialValue) {
+    public Centroid(int key, Vector initialValue) {
         super(initialValue.size());
         this.key = key;
         this.delegate = initialValue.clone();
