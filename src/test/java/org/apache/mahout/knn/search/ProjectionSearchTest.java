@@ -31,14 +31,11 @@ import org.junit.Test;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
-public class ProjectionSearchTest { 
+public class ProjectionSearchTest {
     @Test
     public void testSearch() {
         final EuclideanDistanceMeasure distance = new EuclideanDistanceMeasure();
-        for (int d =20; d < 21; d++) {
+        for (int d = 20; d < 21; d++) {
             ProjectionSearch ps = new ProjectionSearch(20, distance, d);
             List<Vector> ref = Lists.newArrayList();
 
@@ -49,7 +46,7 @@ public class ProjectionSearchTest {
                 ps.add(v);
                 ref.add(v);
             }
-            
+
             double sim = 0;
             int nSim = 0;
             double D1 = 0;
@@ -58,11 +55,11 @@ public class ProjectionSearchTest {
             int searchSize = 800;
             int returnSize = 100;
             List<Vector> randomNeighbor = Lists.newArrayList();
-            randomNeighbor.addAll(ref.subList(0,returnSize));
-            
+            randomNeighbor.addAll(ref.subList(0, returnSize));
+
             for (int i = 0; i < 100; i++) {
                 // final Vector query = new DenseVector(ref.get(0));
-            	final Vector query = new DenseVector(20);
+                final Vector query = new DenseVector(20);
                 query.assign(random);
                 Ordering<Vector> queryOrder = new Ordering<Vector>() {
                     @Override
@@ -71,30 +68,30 @@ public class ProjectionSearchTest {
                     }
                 };
 
-                
+
                 List<Vector> r = ps.search(query, returnSize, searchSize);
-                
+
                 Collections.sort(ref, queryOrder);
-                List<Vector> trueNeighbor = ref.subList(0,returnSize);
-                List<Vector> proxyNeighbor = r.subList(0,returnSize);
-                
+                List<Vector> trueNeighbor = ref.subList(0, returnSize);
+                List<Vector> proxyNeighbor = r.subList(0, returnSize);
+
                 List<Vector> intersection1 = ListUtils.intersection(trueNeighbor, proxyNeighbor);
                 List<Vector> union1 = ListUtils.sum(trueNeighbor, proxyNeighbor);
                 // double jaccardSim = intersection1.size() / (double)union1.size();  
                 // sim += jaccardSim;
-                sim += intersection1.size() / (double)returnSize;
-                nSim++ ;
-                
-                double d1=0;
-                double d2=0;
-                double d3=0;
-                for (int j=0; j< returnSize; j++) {
-                	d1 += distance.distance(query,trueNeighbor.get(j));
-                	d2 += distance.distance(query,proxyNeighbor.get(j));
-                	d3 += distance.distance(query,randomNeighbor.get(j));
-                	//System.out.print(distance.distance(query,trueNeighbor.get(j)));
-                	//System.out.print(" ");
-                	//System.out.println(distance.distance(query,randomNeighbor.get(j)));
+                sim += intersection1.size() / (double) returnSize;
+                nSim++;
+
+                double d1 = 0;
+                double d2 = 0;
+                double d3 = 0;
+                for (int j = 0; j < returnSize; j++) {
+                    d1 += distance.distance(query, trueNeighbor.get(j));
+                    d2 += distance.distance(query, proxyNeighbor.get(j));
+                    d3 += distance.distance(query, randomNeighbor.get(j));
+                    //System.out.print(distance.distance(query,trueNeighbor.get(j)));
+                    //System.out.print(" ");
+                    //System.out.println(distance.distance(query,randomNeighbor.get(j)));
                 }
                 d1 = d1 / returnSize;
                 d2 = d2 / returnSize;
@@ -102,17 +99,17 @@ public class ProjectionSearchTest {
                 D1 += d1;
                 D2 += d2;
                 D3 += d3;
-                
+
                 /****
-                System.out.print(intersection1.size());
-                System.out.print(" ");
-                System.out.print(union1.size());
-                System.out.print(" ");
-                System.out.println(jaccardSim);
-                *****/
-                }
-             System.out.printf("d=%d ave_sim=%.2f trueNeighbor_dist=%.2f proxyNeighbor_dist=%.2f randomNeighbor_dist=%.2f \n", d, sim/nSim, D1/nSim, D2/nSim, D3/nSim);
+                 System.out.print(intersection1.size());
+                 System.out.print(" ");
+                 System.out.print(union1.size());
+                 System.out.print(" ");
+                 System.out.println(jaccardSim);
+                 *****/
             }
-            
+            System.out.printf("d=%d ave_sim=%.2f trueNeighbor_dist=%.2f proxyNeighbor_dist=%.2f randomNeighbor_dist=%.2f \n", d, sim / nSim, D1 / nSim, D2 / nSim, D3 / nSim);
+        }
+
     }
 }
