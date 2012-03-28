@@ -18,6 +18,8 @@
 package org.apache.mahout.knn.search;
 
 import com.google.common.collect.Lists;
+import org.apache.commons.collections.ListUtils;
+
 import com.google.common.collect.Ordering;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.apache.mahout.math.DenseVector;
@@ -32,36 +34,35 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-public class ProjectionSearchTest {
+public class ProjectionSearchTest { 
     @Test
     public void testSearch() {
-        final DoubleFunction random = Functions.random();
         final EuclideanDistanceMeasure distance = new EuclideanDistanceMeasure();
-
-        List<Vector> ref = Lists.newArrayList();
-        for (int i = 0; i < 1000; i++) {
-            Vector v = new DenseVector(20);
-            v.assign(random);
-            ref.add(v);
-        }
-
-        for (int d = 1; d < 10; d++) {
+        for (int d =20; d < 21; d++) {
             ProjectionSearch ps = new ProjectionSearch(20, distance, d);
+            List<Vector> ref = Lists.newArrayList();
 
-            for (Vector v : ref) {
+            final DoubleFunction random = Functions.random();
+            for (int i = 0; i < 40000; i++) {
+                Vector v = new DenseVector(20);
+                v.assign(random);
                 ps.add(v);
+                ref.add(v);
             }
-
-            // exact search should always work very efficiently
-            for (int i = 0; i < 500; i++) {
-                final Vector query = new DenseVector(ref.get(i));
-                List<Vector> r = ps.search(query, 3, 5);
-                assertEquals(0, r.get(0).minus(query).norm(1) , 1e-7);
-            }
-
-            int errors = 0;
+            
+            double sim = 0;
+            int nSim = 0;
+            double D1 = 0;
+            double D2 = 0;
+            double D3 = 0;
+            int searchSize = 800;
+            int returnSize = 100;
+            List<Vector> randomNeighbor = Lists.newArrayList();
+            randomNeighbor.addAll(ref.subList(0,returnSize));
+            
             for (int i = 0; i < 100; i++) {
-                final Vector query = ref.get(0).like();
+                // final Vector query = new DenseVector(ref.get(0));
+            	final Vector query = new DenseVector(20);
                 query.assign(random);
                 Ordering<Vector> queryOrder = new Ordering<Vector>() {
                     @Override
@@ -70,19 +71,48 @@ public class ProjectionSearchTest {
                     }
                 };
 
-                List<Vector> r = ps.search(query, 3, 50);
-
-                // do exhaustive search for reference
+                
+                List<Vector> r = ps.search(query, returnSize, searchSize);
+                
                 Collections.sort(ref, queryOrder);
-
-                // correct answer should be nearly the best most of the time
-                if (ref.indexOf(r.get(0)) > (d > 3 ? 10 : 20)) {
-                    errors++;
+                List<Vector> trueNeighbor = ref.subList(0,returnSize);
+                List<Vector> proxyNeighbor = r.subList(0,returnSize);
+                
+                List<Vector> intersection1 = ListUtils.intersection(trueNeighbor, proxyNeighbor);
+                List<Vector> union1 = ListUtils.sum(trueNeighbor, proxyNeighbor);
+                // double jaccardSim = intersection1.size() / (double)union1.size();  
+                // sim += jaccardSim;
+                sim += intersection1.size() / (double)returnSize;
+                nSim++ ;
+                
+                double d1=0;
+                double d2=0;
+                double d3=0;
+                for (int j=0; j< returnSize; j++) {
+                	d1 += distance.distance(query,trueNeighbor.get(j));
+                	d2 += distance.distance(query,proxyNeighbor.get(j));
+                	d3 += distance.distance(query,randomNeighbor.get(j));
+                	//System.out.print(distance.distance(query,trueNeighbor.get(j)));
+                	//System.out.print(" ");
+                	//System.out.println(distance.distance(query,randomNeighbor.get(j)));
                 }
+                d1 = d1 / returnSize;
+                d2 = d2 / returnSize;
+                d3 = d3 / returnSize;
+                D1 += d1;
+                D2 += d2;
+                D3 += d3;
+                
+                /****
+                System.out.print(intersection1.size());
+                System.out.print(" ");
+                System.out.print(union1.size());
+                System.out.print(" ");
+                System.out.println(jaccardSim);
+                *****/
+                }
+             System.out.printf("d=%d ave_sim=%.2f trueNeighbor_dist=%.2f proxyNeighbor_dist=%.2f randomNeighbor_dist=%.2f \n", d, sim/nSim, D1/nSim, D2/nSim, D3/nSim);
             }
-            int errorLimit = d > 2 ? 1 : 10;
-            assertTrue(String.format("d = %d, errors = %d", d, errors), errors <= errorLimit);
-            System.out.printf("%d\t%d\n", d, errors);
-        }
+            
     }
 }
