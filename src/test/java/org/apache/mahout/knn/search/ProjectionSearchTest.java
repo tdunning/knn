@@ -35,17 +35,21 @@ import static org.junit.Assert.assertTrue;
 public class ProjectionSearchTest {
     @Test
     public void testSearch() {
+        final DoubleFunction random = Functions.random();
         final EuclideanDistanceMeasure distance = new EuclideanDistanceMeasure();
+
+        List<Vector> ref = Lists.newArrayList();
+        for (int i = 0; i < 1000; i++) {
+            Vector v = new DenseVector(20);
+            v.assign(random);
+            ref.add(v);
+        }
+
         for (int d = 1; d < 10; d++) {
             ProjectionSearch ps = new ProjectionSearch(20, distance, d);
-            List<Vector> ref = Lists.newArrayList();
 
-            final DoubleFunction random = Functions.random();
-            for (int i = 0; i < 1000; i++) {
-                Vector v = new DenseVector(20);
-                v.assign(random);
+            for (Vector v : ref) {
                 ps.add(v);
-                ref.add(v);
             }
 
             // exact search should always work very efficiently
@@ -57,7 +61,7 @@ public class ProjectionSearchTest {
 
             int errors = 0;
             for (int i = 0; i < 100; i++) {
-                final Vector query = new DenseVector(ref.get(0));
+                final Vector query = ref.get(0).like();
                 query.assign(random);
                 Ordering<Vector> queryOrder = new Ordering<Vector>() {
                     @Override
@@ -73,7 +77,6 @@ public class ProjectionSearchTest {
 
                 // correct answer should be nearly the best most of the time
                 if (ref.indexOf(r.get(0)) > (d > 3 ? 10 : 20)) {
-
                     errors++;
                 }
             }

@@ -29,41 +29,53 @@ import java.util.Random;
  * Samples from a multi-variate normal distribution.
  */
 public class MultiNormal implements Sampler<Vector> {
-  private final Random gen = new Random();
-  private final Matrix a;
-  private final Vector offset;
+    private final Random gen = new Random();
+    private final int dimension;
+    private final Matrix a;
+    private final Vector offset;
 
-  public MultiNormal(Matrix a) {
-    this(a, null);
-  }
-
-  public MultiNormal(Vector diagonal) {
-    this(new DiagonalMatrix(diagonal), null);
-  }
-
-  public MultiNormal(Vector diagonal, Vector offset) {
-    this(new DiagonalMatrix(diagonal), offset);
-  }
-
-  public MultiNormal(Matrix a, Vector offset) {
-    this.a = a;
-    this.offset = offset;
-  }
-
-  @Override
-  public Vector sample() {
-    Vector v = new DenseVector(a.numCols()).assign(
-      new DoubleFunction() {
-        @Override
-        public double apply(double ignored) {
-          return gen.nextGaussian();
-        }
-      }
-    );
-    if (offset != null) {
-      return a.times(v).plus(offset);
-    } else {
-      return a.times(v);
+    public MultiNormal(Matrix a) {
+        this(a, null);
     }
-  }
+
+    public MultiNormal(Vector diagonal) {
+        this(new DiagonalMatrix(diagonal), null);
+    }
+
+    public MultiNormal(Vector diagonal, Vector offset) {
+        this(new DiagonalMatrix(diagonal), offset);
+    }
+
+    public MultiNormal(Matrix a, Vector offset) {
+        this.a = a;
+        this.offset = offset;
+        this.dimension = a.columnSize();
+    }
+
+    public MultiNormal(int dimension) {
+        this.dimension = dimension;
+        this.a = null;
+        this.offset = null;
+    }
+
+    @Override
+    public Vector sample() {
+        Vector v = new DenseVector(dimension).assign(
+                new DoubleFunction() {
+                    @Override
+                    public double apply(double ignored) {
+                        return gen.nextGaussian();
+                    }
+                }
+        );
+        if (offset != null) {
+            return a.times(v).plus(offset);
+        } else {
+            if (a != null) {
+                return a.times(v);
+            } else {
+                return v;
+            }
+        }
+    }
 }

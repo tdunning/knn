@@ -37,7 +37,7 @@ public class NormalTest {
     }
 
     assertEquals(String.format("m = %.3f, sd = %.3f", s.getMean(), s.getSD()), 2, s.getMean(), 0.02 * s.getSD());
-    assertEquals(5, s.getSD(), 0.08);
+    assertEquals(5, s.getSD(), 0.12);
   }
 
   @Test
