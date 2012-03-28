@@ -83,7 +83,7 @@ public class KMeans {
 	private void getClusters () {
 		
     	int minIndex = -1;
-    	double f = (NUMBER_OF_CLUSTERS+Math.log(numOfRecordsRead));
+    	double f = 1/(NUMBER_OF_CLUSTERS+Math.log(numOfRecordsRead));
     	double mid1 = 0;
     	final DoubleFunction random = Functions.random();
 
@@ -98,9 +98,9 @@ public class KMeans {
     			 }
     		}
     	
-    		if (Math.random()> (edist/f) ) {
+    		if (Math.random() > (edist/f) ) {
     			
-    			centroidArray[minIndex].update(new Centroid(1, vector));
+    			centroidList.get(minIndex).update(new Centroid(1, vector));
     			
     		} else {
     			
@@ -110,19 +110,17 @@ public class KMeans {
                 projection.normalize();
   			
                 //Sort based on dot product
-    			Collections.sort(centroidList,new Comparator<Vector>() {
+    			Collections.sort(centroidList,new Comparator<Centroid>() {
                     @Override
-                    public int compare(Vector v1, Vector v2) {
-                        int r = Double.compare(v1.dot(projection), v2.dot(projection));
+                    public int compare(Centroid c1, Centroid c2) {
+                        int r = Double.compare(c1.getVector().dot(projection), c2.getVector().dot(projection));
                         if (r == 0) {
-                            return v1.hashCode() - v2.hashCode();
+                            return c1.hashCode() - c2.hashCode();
                         } else {
                             return r;
                         }
                     }
                 }); 
-    				
-        		edist=2000;
         		
         		int sizeIndex=0;
     			while(centroidList.size() > NUMBER_OF_CLUSTERS){
@@ -130,7 +128,7 @@ public class KMeans {
     				sizeIndex = centroidList.size()-1;
 	    			for (int i=0; i < sizeIndex; i++) {
 	       			  mid1 = euclideanDistance(centroidList.get(i).getVector(),centroidList.get(i+1).getVector());    				
-		    			if(Math.random() < (edist/f)) {
+		    			if(Math.random() > (edist/f)) {
 		    				centroidList.get(i).update(centroidList.get(i + 1));
 		    				centroidList.remove(i + 1);
 		    				for(int j = 0; j<sizeIndex; j++) {
