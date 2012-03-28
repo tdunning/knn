@@ -27,8 +27,10 @@ import java.util.List;
 public class SampleSequenceFileWriterTest {
     @Test
     public void testWrite() throws IOException {
-        List<Vector> data = SampleSequenceFileWriter.writeTestFile("foo", 30, 100, false);
+        List<Vector> data = SampleSequenceFileWriter.writeTestFile("foo", 30, 1000000, false);
         List<Vector> actual = SampleSequenceFileWriter.readTestFile("foo");
+        Assert.assertEquals(data.size(), actual.size());
+        Assert.assertTrue(data.size() > 0);
         int i = 0;
         for (Vector vector : data) {
             Assert.assertEquals(0, vector.minus(actual.get(i)).norm(1), 1e-8);
