@@ -83,7 +83,7 @@ public class KMeans {
 	private void getClusters () {
 		
     	int minIndex = -1;
-    	double f = (NUMBER_OF_CLUSTERS+Math.log(numOfRecordsRead));
+    	double f = 1/(NUMBER_OF_CLUSTERS+Math.log(numOfRecordsRead));
     	double mid1 = 0;
     	final DoubleFunction random = Functions.random();
 
