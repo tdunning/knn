@@ -18,8 +18,10 @@
 package org.apache.mahout.knn.search;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multiset;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import org.apache.mahout.common.distance.DistanceMeasure;
@@ -80,14 +82,15 @@ public class ProjectionSearch {
     }
 
     public List<Vector> search(final Vector query, int n, int searchSize) {
-        List<Vector> top = Lists.newArrayList();
+        Multiset<Vector> candidates = HashMultiset.create();
         for (TreeSet<Vector> v : vectors) {
-            Iterables.addAll(top, Iterables.limit(v.tailSet(query, true), searchSize));
-            Iterables.addAll(top, Iterables.limit(v.headSet(query, false).descendingSet(), searchSize));
+            Iterables.addAll(candidates, Iterables.limit(v.tailSet(query, true), searchSize));
+            Iterables.addAll(candidates, Iterables.limit(v.headSet(query, false).descendingSet(), searchSize));
         }
 
         // if searchSize * vectors.size() is small enough not to cause much memory pressure, this is probably
         // just as fast as a priority queue here.
+        List<Vector> top = Lists.newArrayList(candidates);
         Collections.sort(top, byQueryDistance(query));
         return top.subList(0, n);
     }
