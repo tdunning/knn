@@ -31,7 +31,9 @@ import org.apache.mahout.math.function.Functions;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.TreeSet;
+import java.util.HashSet;
 
 /**
  * Does approximate nearest neighbor dudes search by projecting the data.
@@ -53,11 +55,16 @@ public class ProjectionSearch {
         this.distance = distance;
         vectors = Lists.newArrayList();
 
+        // we want to create several projections.  Each is alike except for the
+        // direction of the projection
         for (int i = 0; i < projections; i++) {
+        	// create a random vector to use for the basis of the projection
             final DenseVector projection = new DenseVector(d);
             projection.assign(random);
             projection.normalize();
 
+            // the projection is implemented by a tree set where the ordering of vectors
+            // is based on the dot product of the vector with the projection vector
             TreeSet<Vector> s = Sets.newTreeSet(new Comparator<Vector>() {
                 @Override
                 public int compare(Vector v1, Vector v2) {
@@ -69,14 +76,27 @@ public class ProjectionSearch {
                     }
                 }
             });
+            // so we have a project (s) and we need to add it to the list of projections for later
             vectors.add(s);
         }
     }
 
+    /**
+     * Adds a vector into the set of projections for later searching.
+     * @param v  The vector to add.
+     */
     public void add(Vector v) {
+    	// add to each projection separately
         for (TreeSet<Vector> s: vectors) {
             s.add(v);
         }
+    }
+    
+    public static void removeDuplicate(List list)
+    {
+    HashSet h = new HashSet(list);
+    list.clear();
+    list.addAll(h);
     }
 
     public List<Vector> search(final Vector query, int n, int searchSize) {
@@ -85,6 +105,11 @@ public class ProjectionSearch {
             Iterables.addAll(top, Iterables.limit(v.tailSet(query, true), searchSize));
             Iterables.addAll(top, Iterables.limit(v.headSet(query, false).descendingSet(), searchSize));
         }
+        System.out.print(top.size());
+        removeDuplicate(top);
+        System.out.print(" ");
+        System.out.println(top.size());
+
 
         // if searchSize * vectors.size() is small enough not to cause much memory pressure, this is probably
         // just as fast as a priority queue here.
