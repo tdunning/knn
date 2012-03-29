@@ -1,5 +1,11 @@
 package org.apache.mahout.knn.means;
 
+import com.google.common.collect.Sets;
+import org.apache.mahout.math.DenseVector;
+import org.apache.mahout.math.Vector;
+import org.apache.mahout.math.function.DoubleFunction;
+import org.apache.mahout.math.function.Functions;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -7,16 +13,7 @@ import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Iterator;
 import java.util.TreeSet;
-
-import org.apache.hadoop.conf.Configuration;
-import org.apache.mahout.math.DenseVector;
-import org.apache.mahout.math.Vector;
-import org.apache.mahout.math.function.DoubleFunction;
-import org.apache.mahout.math.function.Functions;
-
-import com.google.common.collect.Sets;
 
 public class KMeansTest {
 	
