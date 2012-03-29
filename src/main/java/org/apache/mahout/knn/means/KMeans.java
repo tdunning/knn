@@ -2,7 +2,7 @@ package org.apache.mahout.knn.means;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
+import java.io.FileReader; 
 import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,25 +14,35 @@ import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.function.DoubleFunction;
 import org.apache.mahout.math.function.Functions;
+import org.apache.mahout.knn.generate.MultiNormal;
 
 public class KMeans {
 	
 	private static List <DenseVector>list = new ArrayList<DenseVector>(100);
-	private static List <Centroid>centroidList = new ArrayList<Centroid>(6);
-	private static final int NUMBER_OF_CLUSTERS=5;
+	
+	private static final int NUMBER_OF_CLUSTERS=15;
+	private static List <Centroid>centroidList = new ArrayList<Centroid>(NUMBER_OF_CLUSTERS+1);
 	private static final String DEFAULT_TEST_FILE_NAME="C:\\kMeansTestFile.csv";
+	private static final String DEFAULT_OUTPUT_FILE_NAME="C:\\kMeansOutFile.csv";
 	private static final double BETA=1.5;
 	private static int numOfRecordsRead=0;
 	
 
 	private void createTestFile (String fileName) throws Exception {
 	   	File dataFile = new File(fileName);
+    	final DoubleFunction random = Functions.random();
     	FileWriter fileWriter=new FileWriter(dataFile);
     	StringBuilder stringBuilder=new StringBuilder();
+        final DenseVector projection = new DenseVector(10);
+        DenseVector data_cases = new DenseVector(10);
+        projection.assign(random);
+        projection.normalize();
     	for(int i =0; i<100;i++) {
+        	//data_cases = MultiNormal.sample(data_cases,projection);
     		stringBuilder.append(i).append(",");
     		for (int j=0; j <10; j++) {
     			stringBuilder.append(Math.random()).append(",");
+    			
     		}
     		stringBuilder.setCharAt(stringBuilder.length()-1,'\n');
     		fileWriter.write(stringBuilder.toString());
@@ -60,10 +70,9 @@ public class KMeans {
     	
      	while ((line=bufferedReader.readLine()) != null) {
      		values=line.split(",");
-	     	for (int i=1; i < doubleValues.length; i++) {
+	     	for (int i=0; i < doubleValues.length; i++) {
 	     		doubleValues[i]=Double.parseDouble(values[i+1]);
 	     	}
-	    	doubleValues[0]=Double.parseDouble(values[0]);
 	 		list.add(new DenseVector(doubleValues));
 	 		
 	 		numOfRecordsRead++;
@@ -79,6 +88,37 @@ public class KMeans {
 		}
 
 	}
+	private void setClusters() throws Exception{
+	   	File dataFile = new File(DEFAULT_OUTPUT_FILE_NAME);
+    	FileWriter fileWriter=new FileWriter(dataFile);
+    	StringBuilder stringBuilder = new StringBuilder();
+		for (int i = 0; i <NUMBER_OF_CLUSTERS; i++) {
+			centroidList.get(i).setWeight(0);
+		}
+    	for (Vector vector : list) {
+    		double edist=2000;
+    		double mid1 = 0;
+    		int minIndex = -1;
+    		for (int i = 0; i < centroidList.size(); i++) {
+    			 mid1 = euclideanDistance(vector,centroidList.get(i).getVector());
+    			 if (mid1 < edist) {
+    				 edist = mid1;
+    				 minIndex=i;
+    			 }
+    		}
+    		centroidList.get(minIndex).addWeight();
+    		stringBuilder.append(minIndex).append(",");
+    		for (int j=0; j <10; j++) {
+    			stringBuilder.append(String.valueOf(vector.get(j))).append(",");
+    			
+    		}
+    		stringBuilder.setCharAt(stringBuilder.length()-1,'\n');
+    		fileWriter.write(stringBuilder.toString());
+    		stringBuilder.setLength(0);
+    	}
+    	fileWriter.close();	
+	}
+	
 	
 	private void getClusters () {
 		
@@ -157,13 +197,14 @@ public class KMeans {
     	
     	kMeans.initializeClusters();
     	kMeans.getClusters();
-    	
+    	kMeans.setClusters();
+
     	for (int i=0; i < centroidList.size(); i++) {
     		System.out.println(centroidList.get(i));
     	}
     	
     }
 
-
+    	
 
 }
