@@ -38,7 +38,7 @@ public class ProjectionSearchTest {
     @Test
     public void testSearch() {
         final EuclideanDistanceMeasure distance = new EuclideanDistanceMeasure();
-        for (int d =20; d < 21; d++) {
+        for (int d =10; d < 11; d++) {
             ProjectionSearch ps = new ProjectionSearch(20, distance, d);
             List<Vector> ref = Lists.newArrayList();
 
@@ -55,10 +55,12 @@ public class ProjectionSearchTest {
             double D1 = 0;
             double D2 = 0;
             double D3 = 0;
-            int searchSize = 800;
+            int searchSize = 400;
             int returnSize = 100;
             List<Vector> randomNeighbor = Lists.newArrayList();
             randomNeighbor.addAll(ref.subList(0,returnSize));
+            
+            long runningTime = 0;
             
             for (int i = 0; i < 100; i++) {
                 // final Vector query = new DenseVector(ref.get(0));
@@ -70,14 +72,16 @@ public class ProjectionSearchTest {
                         return Double.compare(distance.distance(query, v1), distance.distance(query, v2));
                     }
                 };
-
-                
-                List<Vector> r = ps.search(query, returnSize, searchSize);
                 
                 Collections.sort(ref, queryOrder);
                 List<Vector> trueNeighbor = ref.subList(0,returnSize);
-                List<Vector> proxyNeighbor = r.subList(0,returnSize);
+
+                long t1 = System.nanoTime();
+                List<Vector> r = ps.search(query, returnSize, searchSize);
+                long t2 = System.nanoTime();
+                runningTime = runningTime + t2 - t1;
                 
+                List<Vector> proxyNeighbor = r.subList(0,returnSize);
                 List<Vector> intersection1 = ListUtils.intersection(trueNeighbor, proxyNeighbor);
                 List<Vector> union1 = ListUtils.sum(trueNeighbor, proxyNeighbor);
                 // double jaccardSim = intersection1.size() / (double)union1.size();  
@@ -111,7 +115,9 @@ public class ProjectionSearchTest {
                 System.out.println(jaccardSim);
                 *****/
                 }
+             long t2 = System.nanoTime();
              System.out.printf("d=%d ave_sim=%.2f trueNeighbor_dist=%.2f proxyNeighbor_dist=%.2f randomNeighbor_dist=%.2f \n", d, sim/nSim, D1/nSim, D2/nSim, D3/nSim);
+             System.out.printf("running time = %.2f seconds \n", runningTime / 1e9);
             }
             
     }
