@@ -11,18 +11,20 @@ import java.util.List;
 import java.util.Random;
 
 import org.apache.mahout.knn.Centroid;
+import org.apache.mahout.knn.QueryPoint;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.function.DoubleFunction;
 import org.apache.mahout.math.function.Functions;
 
-public class KMeans {
+public class KMeans { 
 	
-	private static List <DenseVector>list = new ArrayList<DenseVector>(100);
+	private static List <QueryPoint>customerList = new ArrayList<QueryPoint>();
 	private static List <Centroid>centroidList = new ArrayList<Centroid>(6);
 	private static int NUMBER_OF_CLUSTERS=5;
 	private static String INPUT_FILE_NAME="C:\\kMeansTestFile.csv";
 	private static String OUTPUT_FILE_NAME="C:\\kMeansOutFile.csv";
+	private static String CLUSTER_FILE_NAME="C:\\kMeansClusterFile.csv";
 	private static final double BETA=1.5;
 	private static int numOfRecordsRead=0;
 	
@@ -61,12 +63,14 @@ public class KMeans {
      	String [] values=bufferedReader.readLine().split(",");
     	double [] doubleValues=new double[values.length-1];
     	
+    	QueryPoint queryPoint;
      	while ((line=bufferedReader.readLine()) != null) {
      		values=line.split(",");
+     		queryPoint=new QueryPoint(values[0]);
 	     	for (int i=0; i < doubleValues.length; i++) {
 	     		doubleValues[i]=Double.parseDouble(values[i+1]);
 	     	}
-	 		list.add(new DenseVector(doubleValues));
+	 		customerList.add(queryPoint.setDataPoints(new DenseVector(doubleValues)));
 	 		
 	 		numOfRecordsRead++;
      	}
@@ -77,7 +81,7 @@ public class KMeans {
 	
 	private final void initializeClusters() {
 		for (int i=0; i < NUMBER_OF_CLUSTERS; i++) {
-	 		centroidList.add(new Centroid(i, list.get(i)));
+	 		centroidList.add(new Centroid(i, customerList.get(i).getDataPoints()));
 		}
 
 	}
@@ -89,8 +93,11 @@ public class KMeans {
     	double mid1 = 0;
     	final DoubleFunction random = Functions.random();
 
+    	Vector vector;
     	Centroid [] centroidArray=centroidList.toArray(new Centroid [0]);
-    	for (Vector vector : list) {
+    	for (QueryPoint queryPoint : customerList) {
+    		vector=queryPoint.getDataPoints();
+    		
     		double edist=2000;
     		for (int i = 0; i < centroidArray.length; i++) {
     			 mid1 = euclideanDistance(vector,centroidArray[i].getVector());
@@ -153,10 +160,12 @@ public class KMeans {
 		for (int i = 0; i <NUMBER_OF_CLUSTERS; i++) {
 			centroidList.get(i).setWeight(0);
 		}
-    	for (Vector vector : list) {
+		Vector vector;
+    	for (QueryPoint queryPoint : customerList) {
     		double edist=2000;
     		double mid1 = 0;
     		int minIndex = -1;
+    		vector=queryPoint.getDataPoints();
     		for (int i = 0; i < centroidList.size(); i++) {
     			 mid1 = euclideanDistance(vector,centroidList.get(i).getVector());
     			 if (mid1 < edist) {
@@ -165,8 +174,27 @@ public class KMeans {
     			 }
     		}
     		centroidList.get(minIndex).addWeight();
-    		stringBuilder.append(minIndex).append(",");
+    		stringBuilder.append(minIndex).append(",").append(queryPoint.getCustomerKey()).append(",").append(queryPoint.getPerformance()).append(",");
     		for (int j=0; j <10; j++) {
+    			stringBuilder.append(String.valueOf(vector.get(j))).append(",");
+    			
+    		}
+    		stringBuilder.setCharAt(stringBuilder.length()-1,'\n');
+    		fileWriter.write(stringBuilder.toString());
+    		stringBuilder.setLength(0);
+    	}
+    	fileWriter.close();	
+	}
+
+	private final void writeClusters() throws Exception{
+	   	File dataFile = new File(CLUSTER_FILE_NAME);
+    	FileWriter fileWriter=new FileWriter(dataFile);
+    	StringBuilder stringBuilder = new StringBuilder();
+    	for (Centroid centroid : centroidList) {
+    		Vector vector = centroid.getVector();
+    		int vectorSize=vector.size();
+    		stringBuilder.append(centroid.getKey()).append(",").append(centroid.getWeight()).append(",");
+    		for (int j=0; j < vectorSize; j++) {
     			stringBuilder.append(String.valueOf(vector.get(j))).append(",");
     			
     		}
@@ -202,6 +230,7 @@ public class KMeans {
     	kMeans.initializeClusters();
     	kMeans.getClusters();
     	kMeans.setClusters();
+    	kMeans.writeClusters();
     	
     	for (int i=0; i < centroidList.size(); i++) {
     		System.out.println(centroidList.get(i));
