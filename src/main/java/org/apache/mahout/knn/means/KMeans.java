@@ -154,9 +154,6 @@ public class KMeans {
 
 	
 	private final void setClusters() throws Exception{
-	   	File dataFile = new File(OUTPUT_FILE_NAME);
-    	FileWriter fileWriter=new FileWriter(dataFile);
-    	StringBuilder stringBuilder = new StringBuilder();
 		for (int i = 0; i <NUMBER_OF_CLUSTERS; i++) {
 			centroidList.get(i).setWeight(0);
 		}
@@ -174,14 +171,28 @@ public class KMeans {
     			 }
     		}
     		centroidList.get(minIndex).addWeight();
-    		stringBuilder.append(minIndex).append(",").append(queryPoint.getCustomerKey()).append(",").append(queryPoint.getPerformance()).append(",");
-    		for (int j=0; j <10; j++) {
-    			stringBuilder.append(String.valueOf(vector.get(j))).append(",");
-    			
-    		}
-    		stringBuilder.setCharAt(stringBuilder.length()-1,'\n');
-    		fileWriter.write(stringBuilder.toString());
-    		stringBuilder.setLength(0);
+    		queryPoint.setClusterKey(minIndex);
+    	}
+    	
+		Collections.sort(customerList,new Comparator<QueryPoint>() {
+            @Override
+            public int compare(QueryPoint q1, QueryPoint q2) {
+            	return Double.compare(q1.getClusterKey(), q2.getClusterKey());
+            }
+        }); 
+    	
+    	FileWriter fileWriter=new FileWriter(new File(OUTPUT_FILE_NAME));
+    	StringBuilder stringBuilder = new StringBuilder();
+    	for (QueryPoint queryPoint : customerList) {
+    		vector=queryPoint.getDataPoints();
+			stringBuilder.append(queryPoint.getClusterKey()).append(",").append(queryPoint.getCustomerKey()).append(",").append(queryPoint.getPerformance()).append(",");
+			for (int j=0; j <10; j++) {
+				stringBuilder.append(String.valueOf(vector.get(j))).append(",");
+				
+			}
+			stringBuilder.setCharAt(stringBuilder.length()-1,'\n');
+			fileWriter.write(stringBuilder.toString());
+			stringBuilder.setLength(0);
     	}
     	fileWriter.close();	
 	}
