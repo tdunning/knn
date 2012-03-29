@@ -223,8 +223,11 @@ public class KMeans {
     		NUMBER_OF_CLUSTERS=Integer.parseInt(args[0]);
     		kMeans.readInputFile(args[1]);
     		OUTPUT_FILE_NAME=args[2];
-    		
-    		
+    	} else if (args.length == 4) {
+    		NUMBER_OF_CLUSTERS=Integer.parseInt(args[0]);
+    		kMeans.readInputFile(args[1]);
+    		OUTPUT_FILE_NAME=args[2];
+    		CLUSTER_FILE_NAME=args[3];
     	}
     	
     	kMeans.initializeClusters();
