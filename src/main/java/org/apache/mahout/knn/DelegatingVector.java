@@ -20,52 +20,25 @@ package org.apache.mahout.knn;
 import org.apache.mahout.math.AbstractVector;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.Vector;
-import org.apache.mahout.math.function.DoubleDoubleFunction;
 
 import java.util.Iterator;
 
 /**
- * A centroid is a weighted vector.  We have it delegate to the vector itself for lots of operations
- * to make it easy to use vector search classes and such.
+ * A delegating vector provides an easy way to decorate vectors with weights or id's and such while
+ * keeping all of the Vector functionality.
  */
-public class Centroid extends AbstractVector {
-    private double weight;
-    private int key;
-    private Vector delegate;
+public class DelegatingVector extends AbstractVector {
+    protected Vector delegate;
 
-    public Centroid(Centroid original) {
-        super(original.size());
-        weight = original.getWeight();
-        delegate = original.delegate.clone();
-        key = original.getKey();
+    public DelegatingVector(int size) {
+        super(size);
     }
 
-    public Centroid(int key, Vector initialValue) {
-        super(initialValue.size());
-        this.key = key;
-        this.delegate = initialValue.clone();
-        this.weight = 1;
+    public DelegatingVector(Vector v) {
+        super(v.size());
+        delegate = v;
     }
 
-    public void update(final Centroid other) {
-        delegate.assign(other.delegate, new DoubleDoubleFunction() {
-            double totalWeight = weight + other.weight;
-
-            @Override
-            public double apply(double v, double v1) {
-                return (weight * v + other.weight * v1) / totalWeight;
-            }
-        });
-        weight += other.weight;
-    }
-    
-    public void replace(final Centroid other) {
-        delegate.assign(other.delegate);
-        weight = other.weight;
-        
-    }
-
-    
     @Override
     protected Matrix matrixLike(int i, int i1) {
         throw new UnsupportedOperationException("Can't make a matrix like this");
@@ -111,33 +84,7 @@ public class Centroid extends AbstractVector {
         return delegate.getNumNondefaultElements();
     }
 
-    public int getKey() {
-        return key;
-    }
-
-    public void setKey(int newKey) {
-        this.key=newKey;
-    
-    }
-
     public Vector getVector() {
         return delegate;
-    }
-
-    public double getWeight() {
-        return weight;
-    }
-    
-    public void setWeight(int newWeight) {
-        this.weight=newWeight;
-    }
-    
-    public void addWeight() {
-        this.weight=this.weight+1;
-    }
-    
-    public String toString() {
-    	return new StringBuilder("key = ").append(String.valueOf(key)).append(", weight = ").append(String.valueOf(weight)).append(", delegate = ").append(delegate.toString()).toString();
-    	
     }
 }

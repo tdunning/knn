@@ -25,13 +25,14 @@ import com.google.common.collect.Multiset;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import org.apache.mahout.common.distance.DistanceMeasure;
+import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.function.DoubleFunction;
 import org.apache.mahout.math.function.Functions;
 
 import java.util.Collections;
-import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.TreeSet;
 
@@ -39,9 +40,10 @@ import java.util.TreeSet;
  * Does approximate nearest neighbor dudes search by projecting the data.
  */
 public class ProjectionSearch {
-    private final List<TreeSet<Vector>> vectors;
+    private final List<TreeSet<WeightedVector>> vectors;
     
     private DistanceMeasure distance;
+    private List<Vector> basis;
 
     public ProjectionSearch(int d, DistanceMeasure distance) {
         this(d, distance, 1);
@@ -54,6 +56,7 @@ public class ProjectionSearch {
 
         this.distance = distance;
         vectors = Lists.newArrayList();
+        basis = Lists.newArrayList();
 
         // we want to create several projections.  Each is alike except for the
         // direction of the projection
@@ -63,21 +66,11 @@ public class ProjectionSearch {
             projection.assign(random);
             projection.normalize();
 
+            basis.add(projection);
+
             // the projection is implemented by a tree set where the ordering of vectors
             // is based on the dot product of the vector with the projection vector
-            TreeSet<Vector> s = Sets.newTreeSet(new Comparator<Vector>() {
-                @Override
-                public int compare(Vector v1, Vector v2) {
-                    int r = Double.compare(v1.dot(projection), v2.dot(projection));
-                    if (r == 0) {
-                        return v1.hashCode() - v2.hashCode();
-                    } else {
-                        return r;
-                    }
-                }
-            });
-            // so we have a project (s) and we need to add it to the list of projections for later
-            vectors.add(s);
+            vectors.add(Sets.<WeightedVector>newTreeSet());
         }
     }
 
@@ -86,23 +79,30 @@ public class ProjectionSearch {
      * @param v  The vector to add.
      */
     public void add(Vector v) {
-    	// add to each projection separately
-        for (TreeSet<Vector> s: vectors) {
-            s.add(v);
+        // add to each projection separately
+        Iterator<Vector> projections = basis.iterator();
+        for (TreeSet<WeightedVector> s : vectors) {
+            s.add(new WeightedVector(v, projections.next()));
         }
     }
 
     public List<Vector> search(final Vector query, int n, int searchSize) {
         Multiset<Vector> candidates = HashMultiset.create();
-        for (TreeSet<Vector> v : vectors) {
-            Iterables.addAll(candidates, Iterables.limit(v.tailSet(query, true), searchSize));
-            Iterables.addAll(candidates, Iterables.limit(v.headSet(query, false).descendingSet(), searchSize));
+        Iterator<Vector> projections = basis.iterator();
+        for (TreeSet<WeightedVector> v : vectors) {
+            WeightedVector projectedQuery = new WeightedVector(query, projections.next());
+            for (WeightedVector candidate : Iterables.limit(v.tailSet(projectedQuery, true), searchSize)) {
+                candidates.add(candidate.getVector());
+            }
+            for (WeightedVector candidate : Iterables.limit(v.headSet(projectedQuery, false).descendingSet(), searchSize)) {
+                candidates.add(candidate.getVector());
+            }
         }
         System.out.printf("%d %d\n", candidates.size(), candidates.elementSet().size());
 
         // if searchSize * vectors.size() is small enough not to cause much memory pressure, this is probably
         // just as fast as a priority queue here.
-        List<Vector> top = Lists.newArrayList(candidates);
+        List<Vector> top = Lists.newArrayList(candidates.elementSet());
         Collections.sort(top, byQueryDistance(query));
         return top.subList(0, n);
     }

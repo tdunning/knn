@@ -17,30 +17,36 @@
 
 package org.apache.mahout.knn;
 
-import org.apache.mahout.knn.generate.MultiNormal;
 import org.apache.mahout.math.Vector;
-import org.apache.mahout.math.function.Functions;
-import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
+/**
+ * Decorates a vector with a floating point weight.
+ */
+public class WeightedVector extends DelegatingVector implements Comparable<WeightedVector> {
+    private final double weight;
 
-public class CentroidTest {
-    @Test
-    public void testUpdate() {
-        MultiNormal f = new MultiNormal(20);
+    public WeightedVector(double weight, Vector v) {
+        super(v);
+        this.weight = weight;
+    }
+    
+    public WeightedVector(Vector v, Vector projection) {
+        super(v);
+        this.weight = v.dot(projection);
+    }
 
-        Vector a = f.sample();
-        Vector b = f.sample();
-        Vector c = f.sample();
-        
-        Centroid x1 = new Centroid(1, a);
+    public double getWeight() {
+        return weight;
+    }
 
-        x1.update(new Centroid(2, b));
-        x1.update(new Centroid(3, c));
 
-        assertEquals(0, x1.getVector().minus(a.plus(b).plus(c).assign(Functions.div(3))).norm(1), 1e-8);
-
-        assertEquals(3, x1.getWeight(), 1e-8);
-        assertEquals(1, x1.getKey());
+    @Override
+    public int compareTo(WeightedVector other) {
+        int r = Double.compare(weight, other.getWeight());
+        if (r == 0) {
+            return hashCode() - other.hashCode();
+        } else {
+            return r;
+        }
     }
 }
