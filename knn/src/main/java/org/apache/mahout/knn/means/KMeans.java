@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Random;
 
 import org.apache.mahout.knn.Centroid;
 import org.apache.mahout.math.DenseVector;
@@ -16,23 +17,25 @@ import org.apache.mahout.math.function.DoubleFunction;
 import org.apache.mahout.math.function.Functions;
 
 public class KMeans {
-	//Testing EGit
+	
 	private static List <DenseVector>list = new ArrayList<DenseVector>(100);
 	private static List <Centroid>centroidList = new ArrayList<Centroid>(6);
-	private static final int NUMBER_OF_CLUSTERS=5;
-	private static final String DEFAULT_TEST_FILE_NAME="C:\\kMeansTestFile.csv";
+	private static int NUMBER_OF_CLUSTERS=5;
+	private static String INPUT_FILE_NAME="C:\\kMeansTestFile.csv";
+	private static String OUTPUT_FILE_NAME="C:\\kMeansOutFile.csv";
 	private static final double BETA=1.5;
 	private static int numOfRecordsRead=0;
 	
 
-	private void createTestFile (String fileName) throws Exception {
+	private final void createTestFile (String fileName) throws Exception {
 	   	File dataFile = new File(fileName);
     	FileWriter fileWriter=new FileWriter(dataFile);
     	StringBuilder stringBuilder=new StringBuilder();
+        final Random gen = new Random();
     	for(int i =0; i<100;i++) {
     		stringBuilder.append(i).append(",");
     		for (int j=0; j <10; j++) {
-    			stringBuilder.append(Math.random()).append(",");
+    			stringBuilder.append(gen.nextGaussian()).append(",");
     		}
     		stringBuilder.setCharAt(stringBuilder.length()-1,'\n');
     		fileWriter.write(stringBuilder.toString());
@@ -42,7 +45,7 @@ public class KMeans {
  		
 	}
 	
-	private double euclideanDistance(Vector v1, Vector v2) {
+	private final double euclideanDistance(Vector v1, Vector v2) {
 		double edist = 0.0;
 		int vlen = v1.size(); 
 		for (int i = 0; i <vlen; i++){
@@ -51,7 +54,7 @@ public class KMeans {
 		return edist;
 	}
 	
-	private void readInputFile(String fileName) throws Exception{
+	private final void readInputFile(String fileName) throws Exception{
     	FileReader fileReader=new FileReader(new File(fileName));
     	BufferedReader bufferedReader=new BufferedReader(fileReader);
     	String line=null;
@@ -60,10 +63,9 @@ public class KMeans {
     	
      	while ((line=bufferedReader.readLine()) != null) {
      		values=line.split(",");
-	     	for (int i=1; i < doubleValues.length; i++) {
+	     	for (int i=0; i < doubleValues.length; i++) {
 	     		doubleValues[i]=Double.parseDouble(values[i+1]);
 	     	}
-	    	doubleValues[0]=Double.parseDouble(values[0]);
 	 		list.add(new DenseVector(doubleValues));
 	 		
 	 		numOfRecordsRead++;
@@ -73,14 +75,14 @@ public class KMeans {
 
 	}
 	
-	private void initializeClusters() {
+	private final void initializeClusters() {
 		for (int i=0; i < NUMBER_OF_CLUSTERS; i++) {
 	 		centroidList.add(new Centroid(i, list.get(i)));
 		}
 
 	}
 	
-	private void getClusters () {
+	private final void getClusters () {
 		
     	int minIndex = -1;
     	double f = 1/(NUMBER_OF_CLUSTERS+Math.log(numOfRecordsRead));
@@ -98,9 +100,9 @@ public class KMeans {
     			 }
     		}
     	
-    		if (Math.random()> (edist/f) ) {
+    		if (Math.random() > (edist/f) ) {
     			
-    			centroidArray[minIndex].update(new Centroid(1, vector));
+    			centroidList.get(minIndex).update(new Centroid(1, vector));
     			
     		} else {
     			
@@ -110,19 +112,17 @@ public class KMeans {
                 projection.normalize();
   			
                 //Sort based on dot product
-    			Collections.sort(centroidList,new Comparator<Vector>() {
+    			Collections.sort(centroidList,new Comparator<Centroid>() {
                     @Override
-                    public int compare(Vector v1, Vector v2) {
-                        int r = Double.compare(v1.dot(projection), v2.dot(projection));
+                    public int compare(Centroid c1, Centroid c2) {
+                        int r = Double.compare(c1.getVector().dot(projection), c2.getVector().dot(projection));
                         if (r == 0) {
-                            return v1.hashCode() - v2.hashCode();
+                            return c1.hashCode() - c2.hashCode();
                         } else {
                             return r;
                         }
                     }
                 }); 
-    				
-        		edist=2000;
         		
         		int sizeIndex=0;
     			while(centroidList.size() > NUMBER_OF_CLUSTERS){
@@ -130,7 +130,7 @@ public class KMeans {
     				sizeIndex = centroidList.size()-1;
 	    			for (int i=0; i < sizeIndex; i++) {
 	       			  mid1 = euclideanDistance(centroidList.get(i).getVector(),centroidList.get(i+1).getVector());    				
-		    			if(Math.random() < (edist/f)) {
+		    			if(Math.random() > (edist/f)) {
 		    				centroidList.get(i).update(centroidList.get(i + 1));
 		    				centroidList.remove(i + 1);
 		    				for(int j = 0; j<sizeIndex; j++) {
@@ -146,19 +146,62 @@ public class KMeans {
     }
 
 	
-    public static void main(String[] args) throws Exception { 
+	private final void setClusters() throws Exception{
+	   	File dataFile = new File(OUTPUT_FILE_NAME);
+    	FileWriter fileWriter=new FileWriter(dataFile);
+    	StringBuilder stringBuilder = new StringBuilder();
+		for (int i = 0; i <NUMBER_OF_CLUSTERS; i++) {
+			centroidList.get(i).setWeight(0);
+		}
+    	for (Vector vector : list) {
+    		double edist=2000;
+    		double mid1 = 0;
+    		int minIndex = -1;
+    		for (int i = 0; i < centroidList.size(); i++) {
+    			 mid1 = euclideanDistance(vector,centroidList.get(i).getVector());
+    			 if (mid1 < edist) {
+    				 edist = mid1;
+    				 minIndex=i;
+    			 }
+    		}
+    		centroidList.get(minIndex).addWeight();
+    		stringBuilder.append(minIndex).append(",");
+    		for (int j=0; j <10; j++) {
+    			stringBuilder.append(String.valueOf(vector.get(j))).append(",");
+    			
+    		}
+    		stringBuilder.setCharAt(stringBuilder.length()-1,'\n');
+    		fileWriter.write(stringBuilder.toString());
+    		stringBuilder.setLength(0);
+    	}
+    	fileWriter.close();	
+	}
+
+	public final static void main(String[] args) throws Exception { 
     	
     	KMeans kMeans=new KMeans();
     	
     	if (args.length == 0) {
-    		kMeans.createTestFile(DEFAULT_TEST_FILE_NAME);
-    		kMeans.readInputFile(DEFAULT_TEST_FILE_NAME);
-    	} else {
-    		kMeans.readInputFile(args[0]);
+    		kMeans.createTestFile(INPUT_FILE_NAME);
+    		kMeans.readInputFile(INPUT_FILE_NAME);
+    	} else if (args.length == 1) {
+    		NUMBER_OF_CLUSTERS=Integer.parseInt(args[0]);
+    		kMeans.createTestFile(INPUT_FILE_NAME);
+    		kMeans.readInputFile(INPUT_FILE_NAME);
+    	} else if (args.length == 2) {
+    		NUMBER_OF_CLUSTERS=Integer.parseInt(args[0]);
+    		kMeans.readInputFile(args[1]);
+    	} else if (args.length == 3) {
+    		NUMBER_OF_CLUSTERS=Integer.parseInt(args[0]);
+    		kMeans.readInputFile(args[1]);
+    		OUTPUT_FILE_NAME=args[2];
+    		
+    		
     	}
     	
     	kMeans.initializeClusters();
     	kMeans.getClusters();
+    	kMeans.setClusters();
     	
     	for (int i=0; i < centroidList.size(); i++) {
     		System.out.println(centroidList.get(i));
@@ -166,6 +209,6 @@ public class KMeans {
     	
     }
 
-    	
+
 
 }
