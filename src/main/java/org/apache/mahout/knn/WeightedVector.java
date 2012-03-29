@@ -25,14 +25,18 @@ import org.apache.mahout.math.Vector;
 public class WeightedVector extends DelegatingVector implements Comparable<WeightedVector> {
     private final double weight;
 
-    public WeightedVector(double weight, Vector v) {
+    public WeightedVector(Vector v, double weight) {
         super(v);
         this.weight = weight;
     }
     
-    public WeightedVector(Vector v, Vector projection) {
+    private WeightedVector(Vector v, Vector projection) {
         super(v);
         this.weight = v.dot(projection);
+    }
+    
+    public static WeightedVector project(Vector v, Vector projection) {
+        return new WeightedVector(v, projection);
     }
 
     public double getWeight() {

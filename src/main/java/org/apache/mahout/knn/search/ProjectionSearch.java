@@ -22,7 +22,6 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multiset;
-import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.knn.WeightedVector;
@@ -31,6 +30,7 @@ import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.function.DoubleFunction;
 import org.apache.mahout.math.function.Functions;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -82,15 +82,23 @@ public class ProjectionSearch {
         // add to each projection separately
         Iterator<Vector> projections = basis.iterator();
         for (TreeSet<WeightedVector> s : vectors) {
-            s.add(new WeightedVector(v, projections.next()));
+            s.add(WeightedVector.project(v, projections.next()));
         }
     }
 
-    public List<Vector> search(final Vector query, int n, int searchSize) {
+    /**
+     * Returns the number of vectors that we can search
+     * @return  The number of vectors added to the search so far.
+     */
+    public int size() {
+        return vectors.get(0).size();
+    }
+
+    public List<WeightedVector> search(final Vector query, int n, int searchSize) {
         Multiset<Vector> candidates = HashMultiset.create();
         Iterator<Vector> projections = basis.iterator();
         for (TreeSet<WeightedVector> v : vectors) {
-            WeightedVector projectedQuery = new WeightedVector(query, projections.next());
+            WeightedVector projectedQuery = WeightedVector.project(query, projections.next());
             for (WeightedVector candidate : Iterables.limit(v.tailSet(projectedQuery, true), searchSize)) {
                 candidates.add(candidate.getVector());
             }
@@ -102,18 +110,15 @@ public class ProjectionSearch {
 
         // if searchSize * vectors.size() is small enough not to cause much memory pressure, this is probably
         // just as fast as a priority queue here.
-        List<Vector> top = Lists.newArrayList(candidates.elementSet());
-        Collections.sort(top, byQueryDistance(query));
+        List<WeightedVector> top = Lists.newArrayList();
+        for (Vector candidate : candidates) {
+            top.add(new WeightedVector(candidate, distance.distance(query, candidate)));
+        }
+        Collections.sort(top);
         return top.subList(0, n);
     }
 
-    private Ordering<Vector> byQueryDistance(final Vector query) {
-        return new Ordering<Vector>() {
-            @Override
-            public int compare(Vector v1, Vector v2) {
-                int r = Double.compare(distance.distance(query, v1), distance.distance(query, v2));
-                return r != 0 ? r : v1.hashCode() - v2.hashCode();
-            }
-        };
+    public Collection<WeightedVector> getVectors() {
+        return vectors.get(0);
     }
 }

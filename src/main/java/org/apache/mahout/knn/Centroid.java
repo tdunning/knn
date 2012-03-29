@@ -44,17 +44,24 @@ public class Centroid extends DelegatingVector {
     }
 
     public void update(final Centroid other) {
-        delegate.assign(other.delegate, new DoubleDoubleFunction() {
-            double totalWeight = weight + other.weight;
-
-            @Override
-            public double apply(double v, double v1) {
-                return (weight * v + other.weight * v1) / totalWeight;
-            }
-        });
-        weight += other.weight;
+        update(other.delegate, other.weight);
     }
     
+    public void update(Vector v) {
+        update(v, 1);
+    }
+
+    public void update(Vector v, final double w) {
+        final double totalWeight = weight + w;
+        delegate.assign(v, new DoubleDoubleFunction() {
+            @Override
+            public double apply(double v, double v1) {
+                return (weight * v + w * v1) / totalWeight;
+            }
+        });
+        weight += w;
+    }
+
     public void replace(final Centroid other) {
         delegate.assign(other.delegate);
         weight = other.weight;
