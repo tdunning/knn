@@ -18,14 +18,12 @@
 package org.apache.mahout.knn.search;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.HashMultiset;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Multiset;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Maps;
 import org.apache.mahout.common.distance.DistanceMeasure;
+import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.function.DoubleFunction;

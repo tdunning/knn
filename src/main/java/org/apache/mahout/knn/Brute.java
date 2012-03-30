@@ -36,7 +36,7 @@ import java.util.concurrent.Executors;
  */
 public class Brute {
     // matrix of vectors for comparison
-    private final VectorIterable reference;
+    private final Iterable<MatrixSlice> reference;
 
     // weight vectors for each coordinate
     private final Vector weight;
@@ -44,13 +44,13 @@ public class Brute {
     // blocking factor
     private int limit;
 
-    public Brute(VectorIterable reference, Vector weight) {
+    public Brute(Iterable<MatrixSlice> reference, Vector weight) {
         this.reference = reference;
         this.weight = weight;
         this.limit = Integer.MAX_VALUE;
     }
 
-    public Brute(VectorIterable reference) {
+    public Brute(Iterable<MatrixSlice> reference) {
         this(reference, null);
     }
 
@@ -74,7 +74,7 @@ public class Brute {
      * @param q         The queue to augment with results.
      * @return The modified queue.
      */
-    private PriorityQueue<Result> searchInternal(Vector query, VectorIterable reference, int n, PriorityQueue<Result> q) {
+    private PriorityQueue<Result> searchInternal(Vector query, Iterable<MatrixSlice> reference, int n, PriorityQueue<Result> q) {
         int rowNumber = 0;
         for (MatrixSlice row : reference) {
             if (rowNumber > limit) {
@@ -112,11 +112,12 @@ public class Brute {
      * @param n     The number of results to return for each query.
      * @return A list of result lists.
      */
-    public List<List<Result>> search(VectorIterable query, int n) {
+    public List<List<Result>> search(Iterable<MatrixSlice> query, int n) {
         List<PriorityQueue<Result>> q = Lists.newArrayList();
 
         List<List<Result>> r = Lists.newArrayList();
         for (MatrixSlice row : query) {
+            q.add(new PriorityQueue<Result>());
             r.add(Lists.reverse(Lists.newArrayList(searchInternal(row.vector(), reference, n, q.get(row.index())))));
         }
         return r;

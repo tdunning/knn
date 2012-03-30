@@ -22,6 +22,7 @@ import org.apache.commons.collections.ListUtils;
 
 import com.google.common.collect.Ordering;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
+import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.function.DoubleFunction;
@@ -69,11 +70,11 @@ public class ProjectionSearchTest {
                 };
 
 
-                List<Vector> r = ps.search(query, returnSize, searchSize);
+                List<WeightedVector> r = ps.search(query, returnSize, searchSize);
 
                 Collections.sort(ref, queryOrder);
                 List<Vector> trueNeighbor = ref.subList(0, returnSize);
-                List<Vector> proxyNeighbor = r.subList(0, returnSize);
+                List<WeightedVector> proxyNeighbor = r.subList(0, returnSize);
 
                 List<Vector> intersection1 = ListUtils.intersection(trueNeighbor, proxyNeighbor);
                 List<Vector> union1 = ListUtils.sum(trueNeighbor, proxyNeighbor);

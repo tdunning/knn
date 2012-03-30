@@ -30,7 +30,7 @@ public class WeightedVector extends DelegatingVector implements Comparable<Weigh
         this.weight = weight;
     }
     
-    private WeightedVector(Vector v, Vector projection) {
+    public WeightedVector(Vector v, Vector projection) {
         super(v);
         this.weight = v.dot(projection);
     }

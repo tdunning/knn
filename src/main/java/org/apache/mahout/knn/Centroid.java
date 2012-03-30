@@ -27,19 +27,16 @@ import org.apache.mahout.math.function.DoubleDoubleFunction;
 public class Centroid extends DelegatingVector {
     private double weight;
     private int key;
-    private Vector delegate;
 
     public Centroid(Centroid original) {
-        super(original.size());
+        super(original.delegate.clone());
         weight = original.getWeight();
-        delegate = original.delegate.clone();
         key = original.getKey();
     }
 
     public Centroid(int key, Vector initialValue) {
-        super(initialValue.size());
+        super(initialValue);
         this.key = key;
-        this.delegate = initialValue.clone();
         this.weight = 1;
     }
 

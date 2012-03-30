@@ -18,6 +18,7 @@
 package org.apache.mahout.knn.search;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -26,6 +27,7 @@ import com.google.common.collect.Sets;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.math.DenseVector;
+import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.function.DoubleFunction;
 import org.apache.mahout.math.function.Functions;
@@ -39,7 +41,7 @@ import java.util.TreeSet;
 /**
  * Does approximate nearest neighbor dudes search by projecting the data.
  */
-public class ProjectionSearch {
+public class ProjectionSearch implements Iterable<MatrixSlice> {
     private final List<TreeSet<WeightedVector>> vectors;
     
     private DistanceMeasure distance;
@@ -120,5 +122,18 @@ public class ProjectionSearch {
 
     public Collection<WeightedVector> getVectors() {
         return vectors.get(0);
+    }
+
+    @Override
+    public Iterator<MatrixSlice> iterator() {
+        return new AbstractIterator<MatrixSlice>() {
+            int index = 0;
+            Iterator<WeightedVector> data = vectors.get(0).iterator();
+
+            @Override
+            protected MatrixSlice computeNext() {
+                return new MatrixSlice(data.next(), index++);
+            }
+        };
     }
 }
