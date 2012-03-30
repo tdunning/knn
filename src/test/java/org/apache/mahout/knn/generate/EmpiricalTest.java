@@ -35,7 +35,7 @@ public class EmpiricalTest {
       r.add(z.sample());
     }
     Collections.sort(r);
-    assertEquals(2.0, r.get(5000), 3e-2);
+    assertEquals(2.0, r.get(5000), 0.15);
   }
 
   @Test
