@@ -23,7 +23,8 @@ import org.apache.mahout.math.Vector;
  * A QueryPoint is a customer.  
  */
 public class QueryPoint {
-    private double performance=-1;
+	private double performance=-1;
+    private double euclideanDist=-1;
     private int clusterKey = -1;
     private String customerKey;
     private Vector dataPoints;
@@ -82,6 +83,14 @@ public class QueryPoint {
 	public QueryPoint setDataPoints(final Vector dataPoints) {
 		this.dataPoints = dataPoints;
 		return this;
+	}
+
+    public double getEuclideanDist() {
+		return euclideanDist;
+	}
+
+	public void setEuclideanDist(double euclideanDist) {
+		this.euclideanDist = euclideanDist;
 	}
 
 	public String toString() {
