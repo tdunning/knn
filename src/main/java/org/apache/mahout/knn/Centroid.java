@@ -35,7 +35,7 @@ public class Centroid extends DelegatingVector {
     }
 
     public Centroid(int key, Vector initialValue) {
-        super(initialValue);
+        super(initialValue.clone());
         this.key = key;
         this.weight = 1;
     }
