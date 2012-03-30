@@ -17,6 +17,7 @@
 
 package org.apache.mahout.knn.generate;
 
+import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.DiagonalMatrix;
 import org.apache.mahout.math.Matrix;
@@ -29,7 +30,7 @@ import java.util.Random;
  * Samples from a multi-variate normal distribution.
  */
 public class MultiNormal implements Sampler<Vector> {
-    private final Random gen = new Random();
+    private final Random gen;
     private final int dimension;
     private final Matrix a;
     private final Vector offset;
@@ -47,15 +48,22 @@ public class MultiNormal implements Sampler<Vector> {
     }
 
     public MultiNormal(Matrix a, Vector offset) {
-        this.a = a;
-        this.offset = offset;
-        this.dimension = a.columnSize();
+        this(a, offset, a.columnSize());
     }
 
     public MultiNormal(int dimension) {
+        this(null, null, dimension);
+    }
+
+    public MultiNormal(double radius, Vector mean) {
+        this(new DiagonalMatrix(radius, mean.size()));
+    }
+
+    private MultiNormal(Matrix a, Vector offset, int dimension) {
+        gen = RandomUtils.getRandom();
         this.dimension = dimension;
-        this.a = null;
-        this.offset = null;
+        this.a = a;
+        this.offset = offset;
     }
 
     @Override

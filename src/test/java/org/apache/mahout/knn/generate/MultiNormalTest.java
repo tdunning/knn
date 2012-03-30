@@ -17,15 +17,22 @@
 
 package org.apache.mahout.knn.generate;
 
+import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.stats.OnlineSummarizer;
+import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 
 public class MultiNormalTest {
-  @Test
+    @Before
+    public void setUp() {
+        RandomUtils.useTestSeed();
+    }
+
+    @Test
   public void testDiagonal() {
     final DenseVector offset = new DenseVector(new double[]{6, 3, 0});
     MultiNormal n = new MultiNormal(

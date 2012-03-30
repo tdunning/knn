@@ -18,6 +18,7 @@
 package org.apache.mahout.knn.generate;
 
 import com.google.common.collect.Lists;
+import org.apache.mahout.common.RandomUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -27,50 +28,52 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 
 public class EmpiricalTest {
-  @Test
-  public void testSimpleDist() {
-    Empirical z = new Empirical(true, true, 3, 0, 1, 0.5, 2, 1, 3.0);
-    List<Double> r = Lists.newArrayList();
-    for (int i = 0; i < 10001; i++) {
-      r.add(z.sample());
-    }
-    Collections.sort(r);
-    assertEquals(2.0, r.get(5000), 0.15);
-  }
+    @Test
+    public void testSimpleDist() {
+        RandomUtils.useTestSeed();
 
-  @Test
-  public void testZeros() {
-    Empirical z = new Empirical(true, true, 3, 0, 1, 0.5, 2, 1, 3.0);
-    assertEquals(-16.52, z.sample(0), 1e-2);
-    assertEquals(20.47, z.sample(1), 1e-2);
-  }
+        Empirical z = new Empirical(true, true, 3, 0, 1, 0.5, 2, 1, 3.0);
+        List<Double> r = Lists.newArrayList();
+        for (int i = 0; i < 10001; i++) {
+            r.add(z.sample());
+        }
+        Collections.sort(r);
+        assertEquals(2.0, r.get(5000), 0.15);
+    }
 
-  @Test
-  public void testBadArguments() {
-    try {
-      new Empirical(true, false, 20, 0, 1, 0.5, 2, 0.9, 9, 0.99, 10.0);
-      Assert.fail("Should have caught that");
-    } catch (IllegalArgumentException e) {
+    @Test
+    public void testZeros() {
+        Empirical z = new Empirical(true, true, 3, 0, 1, 0.5, 2, 1, 3.0);
+        assertEquals(-16.52, z.sample(0), 1e-2);
+        assertEquals(20.47, z.sample(1), 1e-2);
     }
-    try {
-      new Empirical(false, true, 20, 0.1, 1, 0.5, 2, 0.9, 9, 1, 10.0);
-      Assert.fail("Should have caught that");
-    } catch (IllegalArgumentException e) {
+
+    @Test
+    public void testBadArguments() {
+        try {
+            new Empirical(true, false, 20, 0, 1, 0.5, 2, 0.9, 9, 0.99, 10.0);
+            Assert.fail("Should have caught that");
+        } catch (IllegalArgumentException e) {
+        }
+        try {
+            new Empirical(false, true, 20, 0.1, 1, 0.5, 2, 0.9, 9, 1, 10.0);
+            Assert.fail("Should have caught that");
+        } catch (IllegalArgumentException e) {
+        }
+        try {
+            new Empirical(true, true, 20, -0.1, 1, 0.5, 2, 0.9, 9, 1, 10.0);
+            Assert.fail("Should have caught that");
+        } catch (IllegalArgumentException e) {
+        }
+        try {
+            new Empirical(true, true, 20, 0, 1, 0.5, 2, 0.9, 9, 1.2, 10.0);
+            Assert.fail("Should have caught that");
+        } catch (IllegalArgumentException e) {
+        }
+        try {
+            new Empirical(true, true, 20, 0, 1, 0.5, 2, 0.4, 9, 1, 10.0);
+            Assert.fail("Should have caught that");
+        } catch (IllegalArgumentException e) {
+        }
     }
-    try {
-      new Empirical(true, true, 20, -0.1, 1, 0.5, 2, 0.9, 9, 1, 10.0);
-      Assert.fail("Should have caught that");
-    } catch (IllegalArgumentException e) {
-    }
-    try {
-      new Empirical(true, true, 20, 0, 1, 0.5, 2, 0.9, 9, 1.2, 10.0);
-      Assert.fail("Should have caught that");
-    } catch (IllegalArgumentException e) {
-    }
-    try {
-      new Empirical(true, true, 20, 0, 1, 0.5, 2, 0.4, 9, 1, 10.0);
-      Assert.fail("Should have caught that");
-    } catch (IllegalArgumentException e) {
-    }
-  }
 }

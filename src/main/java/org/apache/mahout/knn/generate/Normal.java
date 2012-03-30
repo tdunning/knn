@@ -17,22 +17,24 @@
 
 package org.apache.mahout.knn.generate;
 
+import org.apache.mahout.common.RandomUtils;
+
 import java.util.Random;
 
 public class Normal extends AbstractSamplerFunction {
-  private final Random rand = new Random();
-  private double mean = 0;
-  private double sd = 1;
+    private final Random rand = RandomUtils.getRandom();
+    private double mean = 0;
+    private double sd = 1;
 
-  public Normal() {
-  }
+    public Normal() {
+    }
 
-  public Normal(double mean, double sd) {
-    this.mean = mean;
-    this.sd = sd;
-  }
+    public Normal(double mean, double sd) {
+        this.mean = mean;
+        this.sd = sd;
+    }
 
-  public Double sample() {
-    return rand.nextGaussian() * sd + mean;
-  }
+    public Double sample() {
+        return rand.nextGaussian() * sd + mean;
+    }
 }
