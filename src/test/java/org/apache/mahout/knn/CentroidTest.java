@@ -18,6 +18,7 @@
 package org.apache.mahout.knn;
 
 import org.apache.mahout.knn.generate.MultiNormal;
+import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.function.Functions;
 import org.junit.Test;
@@ -32,13 +33,26 @@ public class CentroidTest {
         Vector a = f.sample();
         Vector b = f.sample();
         Vector c = f.sample();
+
+        final DenseVector x = new DenseVector(a);
+        Centroid x1 = new Centroid(1, x);
+
+        x1.update(new Centroid(2, new DenseVector(b)));
+        Centroid x2 = new Centroid(x1);
         
-        Centroid x1 = new Centroid(1, a);
+        x1.update(c);
 
-        x1.update(new Centroid(2, b));
-        x1.update(new Centroid(3, c));
-
+        // check for correct value
         assertEquals(0, x1.getVector().minus(a.plus(b).plus(c).assign(Functions.div(3))).norm(1), 1e-8);
+        assertEquals(3, x1.getWeight(), 0);
+        
+        assertEquals(0, x2.minus(a.plus(b).divide(2)).norm(1), 1e-8);
+        assertEquals(2, x2.getWeight(), 0);
+
+        assertEquals(0, new Centroid(x1.getKey(), x1, x1.getWeight()).minus(x1).norm(1), 1e-8);
+
+        // and verify shared storage
+        assertEquals(0, x.minus(x1).norm(1), 0);
 
         assertEquals(3, x1.getWeight(), 1e-8);
         assertEquals(1, x1.getKey());

@@ -18,37 +18,35 @@
 package org.apache.mahout.knn.search;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Maps;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.math.DenseVector;
-import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.function.DoubleFunction;
 import org.apache.mahout.math.function.Functions;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.TreeSet;
+import java.util.Map;
 
 /**
  * Does approximate nearest neighbor dudes search by projecting the data.
  */
-public class ProjectionSearch extends Searcher implements Iterable<MatrixSlice> {
+public class ProjectionSearch3 extends Searcher {
     private final List<TreeSet<WeightedVector>> vectors;
 
     private DistanceMeasure distance;
     private List<Vector> basis;
     private int searchSize;
 
-    public ProjectionSearch(int d, DistanceMeasure distance, int projections, int searchSize) {
+    public ProjectionSearch3(int d, DistanceMeasure distance, int projections, int searchSize) {
         this.searchSize = searchSize;
         Preconditions.checkArgument(projections > 0 && projections < 100, "Unreasonable value for number of projections");
 
@@ -82,43 +80,63 @@ public class ProjectionSearch extends Searcher implements Iterable<MatrixSlice> 
         // add to each projection separately
         Iterator<Vector> projections = basis.iterator();
         for (TreeSet<WeightedVector> s : vectors) {
-            s.add(WeightedVector.project(v, projections.next()));
+            s.add(new WeightedVector(v, projections.next()));
         }
-    }
-
-    /**
-     * Returns the number of vectors that we can search
-     * @return  The number of vectors added to the search so far.
-     */
-    public int size() {
-        return vectors.get(0).size();
     }
 
     public List<WeightedVector> search(final Vector query, int n) {
-        Multiset<Vector> candidates = HashMultiset.create();
+        Map<Vector, Double> distances = Maps.newHashMap();
+
+        // for each projection
         Iterator<Vector> projections = basis.iterator();
         for (TreeSet<WeightedVector> v : vectors) {
-            WeightedVector projectedQuery = WeightedVector.project(query, projections.next());
-            for (WeightedVector candidate : Iterables.limit(v.tailSet(projectedQuery, true), searchSize)) {
-                candidates.add(candidate.getVector());
+            WeightedVector projectedQuery = new WeightedVector(query, projections.next());
+
+            // Collect nearby vectors
+            List<WeightedVector> candidates = Lists.newArrayList();
+            Iterables.addAll(candidates, Iterables.limit(v.tailSet(projectedQuery, true), searchSize));
+            Iterables.addAll(candidates, Iterables.limit(v.headSet(projectedQuery, false).descendingSet(), searchSize));
+
+            // find maximum projected distance in nearby values.
+            // all unmentioned values will be at least that far away.
+            // also collect a set of unmentioned values
+            Set<Vector> unmentioned = Sets.newHashSet(distances.keySet());
+            double maxDistance = 0;
+            for (WeightedVector vector : candidates) {
+                unmentioned.remove(vector.getVector());
+                maxDistance = Math.max(maxDistance, vector.getWeight());
             }
-            for (WeightedVector candidate : Iterables.limit(v.headSet(projectedQuery, false).descendingSet(), searchSize)) {
-                candidates.add(candidate.getVector());
+
+            // all unmentioned vectors have to be put at least as far away as we can justify
+            for (Vector vector : unmentioned) {
+                double x = distances.get(vector);
+                if (maxDistance > x) {
+                    distances.put(vector, maxDistance);
+                }
+            }
+
+            // and all candidates get a real test
+            for (WeightedVector candidate : candidates) {
+                Double x = distances.get(candidate);
+                if (x == null || x < candidate.getWeight()) {
+                    distances.put(candidate.getVector(), candidate.getWeight());
+                }
             }
         }
 
-        // if searchSize * vectors.size() is small enough not to cause much memory pressure, this is probably
-        // just as fast as a priority queue here.
-        List<WeightedVector> top = Lists.newArrayList();
-        for (Vector candidate : candidates.elementSet()) {
-            top.add(new WeightedVector(candidate, distance.distance(query, candidate)));
+        // now sort by actual distance
+        List<WeightedVector> r = Lists.newArrayList();
+        for (Vector vector : distances.keySet()) {
+            r.add(new WeightedVector(vector, distance.distance(query, vector)));
         }
-        Collections.sort(top);
-        return top.subList(0, n);
+
+        Collections.sort(r);
+        return r.subList(0, n);
     }
 
-    public Collection<WeightedVector> getVectors() {
-        return vectors.get(0);
+    @Override
+    public int size() {
+        return vectors.get(0).size();
     }
 
     @Override
@@ -127,35 +145,9 @@ public class ProjectionSearch extends Searcher implements Iterable<MatrixSlice> 
     }
 
     @Override
-    public void setSearchSize(int size) {
-        searchSize = size;
+    public void setSearchSize(int searchSize) {
+        this.searchSize = searchSize;
     }
 
-    @Override
-    public Iterator<MatrixSlice> iterator() {
-        return new AbstractIterator<MatrixSlice>() {
-            int index = 0;
-            Iterator<WeightedVector> data = vectors.get(0).iterator();
 
-            @Override
-            protected MatrixSlice computeNext() {
-                if (!data.hasNext()) {
-                    return endOfData();
-                } else {
-                    return new MatrixSlice(data.next(), index++);
-                }
-            }
-        };
-    }
-
-    public void remove(Vector vector) {
-        Iterator<Vector> basisVectors = basis.iterator();
-        for (TreeSet<WeightedVector> projection : vectors) {
-            WeightedVector v = new WeightedVector(vector, basisVectors.next());
-            boolean r = projection.remove(v);
-            if (!r) {
-                System.out.printf("Couldn't remove vector! %s\n", vector);
-            }
-        }
-    }
 }

@@ -22,13 +22,11 @@ import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.knn.Brute;
 import org.apache.mahout.knn.Centroid;
-import org.apache.mahout.knn.DelegatingVector;
 import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.knn.search.ProjectionSearch;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.MatrixSlice;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Random;
 
@@ -42,7 +40,7 @@ public class StreamingKmeans {
         ProjectionSearch centroids = clusterInternal(data, maxClusters);
 
         int width = data.iterator().next().vector().size();
-        ProjectionSearch r = new ProjectionSearch(width, distance, 4);
+        ProjectionSearch r = new ProjectionSearch(width, distance, 4, 10);
         for (MatrixSlice centroid : centroids) {
             Centroid c = new Centroid(centroid.index(), new DenseVector(centroid.vector()));
             c.setWeight(0);
@@ -50,7 +48,7 @@ public class StreamingKmeans {
         }
 
         for (MatrixSlice row : data) {
-            WeightedVector closest = r.search(row.vector(), 1, 10).get(0);
+            WeightedVector closest = r.search(row.vector(), 1).get(0);
 
             // merge against existing
             Centroid c = (Centroid) closest.getVector();
@@ -80,7 +78,7 @@ public class StreamingKmeans {
 
     private ProjectionSearch clusterInternal(Iterable<MatrixSlice> data, int maxClusters) {
         int width = data.iterator().next().vector().size();
-        ProjectionSearch centroids = new ProjectionSearch(width, distance, 4);
+        ProjectionSearch centroids = new ProjectionSearch(width, distance, 4, 10);
 
         // now we scan the data and either add each point to the nearest group or create a new group
         // when we get too many groups, then we need to increase the threshold and rescan our current groups
@@ -90,7 +88,7 @@ public class StreamingKmeans {
                 centroids.add(new Centroid(centroids.size(), row.vector()));
             } else {
                 // estimate distance d to closest centroid
-                WeightedVector closest = centroids.search(row.vector(), 1, 10).get(0);
+                WeightedVector closest = centroids.search(row.vector(), 1).get(0);
 
                 if (rand.nextDouble() < closest.getWeight() / distanceCutoff) {
                     // add new centroid
@@ -106,6 +104,7 @@ public class StreamingKmeans {
 
             if (centroids.size() > maxClusters) {
                 distanceCutoff *= 1.5;
+                // TODO shuffle centriod list
                 centroids = clusterInternal(centroids, maxClusters);
             }
         }

@@ -24,9 +24,9 @@ import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.MatrixSlice;
 import org.junit.BeforeClass;
 
-public class ProjectionSearchTest extends AbstractSearchTest {
+public class ProjectionSearch3Test extends AbstractSearchTest {
     private static Matrix data;
-    private static ProjectionSearch searcher;
+    private static ProjectionSearch3 searcher;
 
     @BeforeClass
     public static void setUp() {
@@ -36,7 +36,7 @@ public class ProjectionSearchTest extends AbstractSearchTest {
             slice.vector().assign(gen.sample());
         }
 
-        searcher = new ProjectionSearch(20, new EuclideanDistanceMeasure(), 4, 20);
+        searcher = new ProjectionSearch3(20, new EuclideanDistanceMeasure(), 4, 20);
     }
 
     @Override

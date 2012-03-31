@@ -48,7 +48,7 @@ public class Centroid extends WeightedVector {
     public void update(final Centroid other) {
         update(other.delegate, other.weight);
     }
-    
+
     public void update(Vector v) {
         update(v, 1);
     }
@@ -64,34 +64,28 @@ public class Centroid extends WeightedVector {
         weight += w;
     }
 
-    public void replace(final Centroid other) {
-        delegate.assign(other.delegate);
-        weight = other.weight;
-        
-    }
-
     public int getKey() {
         return key;
     }
 
     public void setKey(int newKey) {
-        this.key=newKey;
-    
+        this.key = newKey;
+
     }
 
     public double getWeight() {
         return weight;
     }
-    
+
     public void setWeight(double newWeight) {
         this.weight = newWeight;
     }
-    
+
     public void addWeight() {
-        this.weight=this.weight+1;
+        this.weight = this.weight + 1;
     }
-    
+
     public String toString() {
-    	return new StringBuilder("key = ").append(String.valueOf(key)).append(", weight = ").append(String.valueOf(weight)).append(", delegate = ").append(delegate.toString()).toString();
+        return new StringBuilder("key = ").append(String.valueOf(key)).append(", weight = ").append(String.valueOf(weight)).append(", delegate = ").append(delegate.toString()).toString();
     }
 }

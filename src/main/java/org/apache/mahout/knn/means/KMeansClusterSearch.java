@@ -1,28 +1,36 @@
-package org.apache.mahout.knn.means;
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Hashtable;
-import java.util.List;
-import java.util.Random;
-import java.util.SortedSet;
-import java.util.TreeMap;
-import java.util.TreeSet;
+package org.apache.mahout.knn.means;
 
 import org.apache.mahout.knn.Centroid;
 import org.apache.mahout.knn.QueryPoint;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
-import org.apache.mahout.math.function.DoubleFunction;
-import org.apache.mahout.math.function.Functions;
 
-import com.google.common.collect.Sets;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Hashtable;
+import java.util.List;
+import java.util.TreeMap;
 
 public class KMeansClusterSearch {
 	
@@ -43,7 +51,7 @@ public class KMeansClusterSearch {
     });
     
 
-	private final double euclideanDistance(Vector v1, Vector v2) {
+	private double euclideanDistance(Vector v1, Vector v2) {
 		double edist = 0.0;
 		int vlen = v1.size(); 
 		for (int i = 0; i <vlen; i++){
@@ -52,7 +60,7 @@ public class KMeansClusterSearch {
 		return edist;
 	}
 	
-	private final void loadClusterFile(String fileName) throws Exception{
+	private void loadClusterFile(String fileName) throws Exception{
     	FileReader fileReader=new FileReader(new File(fileName));
     	BufferedReader bufferedReader=new BufferedReader(fileReader);
     	String line=null;
@@ -72,7 +80,7 @@ public class KMeansClusterSearch {
 
 	}
 	
-	private final void loadQueryFile(String fileName) throws Exception{
+	private void loadQueryFile(String fileName) throws Exception{
     	FileReader fileReader=new FileReader(new File(fileName));
     	BufferedReader bufferedReader=new BufferedReader(fileReader);
     	String line=null;
@@ -92,7 +100,7 @@ public class KMeansClusterSearch {
 
 	}
 
-	private final void queryClusters() throws Exception{
+	private void queryClusters() throws Exception{
 		int centroidListSize=centroidList.size();
 		
 		List <double[]> customerDistances=null;
@@ -155,7 +163,7 @@ public class KMeansClusterSearch {
     }
 
 	
-	private final void loadReferenceFile(String fileName) throws Exception{
+	private void loadReferenceFile(String fileName) throws Exception{
     	FileReader fileReader=new FileReader(new File(fileName));
     	BufferedReader bufferedReader=new BufferedReader(fileReader);
     	String line=null;
@@ -187,7 +195,7 @@ public class KMeansClusterSearch {
 
 	}
 	
-	public final static void main(String[] args) throws Exception { 
+	public static void main(String[] args) throws Exception {
     	
 		KMeansClusterSearch kMeansClusterSearch=new KMeansClusterSearch();
     	
@@ -211,7 +219,7 @@ public class KMeansClusterSearch {
     	}
     	
     	kMeansClusterSearch.queryClusters();
-		kMeansClusterSearch.writeCustomerNeighbors();
+//		kMeansClusterSearch.writeCustomerNeighbors();
 		
     	
     }

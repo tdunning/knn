@@ -18,10 +18,10 @@
 package org.apache.mahout.knn.search;
 
 import com.google.common.collect.Lists;
-import org.apache.commons.collections.ListUtils;
-
 import com.google.common.collect.Ordering;
+import org.apache.commons.collections.ListUtils;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
+import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.function.DoubleFunction;
@@ -31,15 +31,12 @@ import org.junit.Test;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
-public class ProjectionSearchTest { 
+public class OldProjectionSearchTest { 
     @Test
     public void testSearch() {
         final EuclideanDistanceMeasure distance = new EuclideanDistanceMeasure();
         for (int d =10; d < 11; d++) {
-            ProjectionSearch ps = new ProjectionSearch(20, distance, d);
+            ProjectionSearch ps = new ProjectionSearch(20, distance, d, 1);
             List<Vector> ref = Lists.newArrayList();
 
             final DoubleFunction random = Functions.random();
@@ -77,11 +74,12 @@ public class ProjectionSearchTest {
                 List<Vector> trueNeighbor = ref.subList(0,returnSize);
 
                 long t1 = System.nanoTime();
-                List<Vector> r = ps.search(query, returnSize, searchSize);
+                ps.setSearchSize(searchSize);
+                List<WeightedVector> r = ps.search(query, returnSize);
                 long t2 = System.nanoTime();
                 runningTime = runningTime + t2 - t1;
                 
-                List<Vector> proxyNeighbor = r.subList(0,returnSize);
+                List<WeightedVector> proxyNeighbor = r.subList(0, returnSize);
                 List<Vector> intersection1 = ListUtils.intersection(trueNeighbor, proxyNeighbor);
                 List<Vector> union1 = ListUtils.sum(trueNeighbor, proxyNeighbor);
                 // double jaccardSim = intersection1.size() / (double)union1.size();  
@@ -115,8 +113,7 @@ public class ProjectionSearchTest {
                 System.out.println(jaccardSim);
                 *****/
                 }
-             long t2 = System.nanoTime();
-             System.out.printf("d=%d ave_sim=%.2f trueNeighbor_dist=%.2f proxyNeighbor_dist=%.2f randomNeighbor_dist=%.2f \n", d, sim/nSim, D1/nSim, D2/nSim, D3/nSim);
+            System.out.printf("d=%d ave_sim=%.2f trueNeighbor_dist=%.2f proxyNeighbor_dist=%.2f randomNeighbor_dist=%.2f \n", d, sim/nSim, D1/nSim, D2/nSim, D3/nSim);
              System.out.printf("running time = %.2f seconds \n", runningTime / 1e9);
             }
             

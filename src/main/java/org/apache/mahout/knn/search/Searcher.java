@@ -17,35 +17,29 @@
 
 package org.apache.mahout.knn.search;
 
-import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
-import org.apache.mahout.knn.generate.MultiNormal;
-import org.apache.mahout.math.DenseMatrix;
-import org.apache.mahout.math.Matrix;
+import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.math.MatrixSlice;
-import org.junit.BeforeClass;
+import org.apache.mahout.math.Vector;
 
-public class ProjectionSearchTest extends AbstractSearchTest {
-    private static Matrix data;
-    private static ProjectionSearch searcher;
+import java.util.List;
 
-    @BeforeClass
-    public static void setUp() {
-        data = new DenseMatrix(1000, 20);
-        MultiNormal gen = new MultiNormal(20);
+/**
+ * Describes how we search vectors.
+ */
+public abstract class Searcher {
+    public abstract void add(Vector v);
+
+    public abstract List<WeightedVector> search(Vector query, int i);
+
+    public void addAll(Iterable<MatrixSlice> data) {
         for (MatrixSlice slice : data) {
-            slice.vector().assign(gen.sample());
+            add(slice.vector());
         }
-
-        searcher = new ProjectionSearch(20, new EuclideanDistanceMeasure(), 4, 20);
     }
 
-    @Override
-    public Iterable<MatrixSlice> testData() {
-        return data;
-    }
+    public abstract int size();
 
-    @Override
-    public Searcher getSearch() {
-        return searcher;
-    }
+    public abstract int getSearchSize();
+    
+    public abstract void setSearchSize(int size);
 }

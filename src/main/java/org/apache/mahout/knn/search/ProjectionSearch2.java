@@ -88,7 +88,7 @@ public class ProjectionSearch2 {
     }
 
     public List<Vector> search(final Vector query, int n, int searchSize) {
-        
+        // initializes a map of weights for all vectors
         Map<Vector, Double> allCustomers = Maps.newHashMap();
         for (WeightedVector element : vectors.get(0)) {
         	allCustomers.put(element.getVector(), 0.0);
