@@ -35,10 +35,6 @@ public class MultiNormal implements Sampler<Vector> {
     private final Matrix a;
     private final Vector offset;
 
-    public MultiNormal(Matrix a) {
-        this(a, null);
-    }
-
     public MultiNormal(Vector diagonal) {
         this(new DiagonalMatrix(diagonal), null);
     }
@@ -56,7 +52,7 @@ public class MultiNormal implements Sampler<Vector> {
     }
 
     public MultiNormal(double radius, Vector mean) {
-        this(new DiagonalMatrix(radius, mean.size()));
+        this(new DiagonalMatrix(radius, mean.size()), mean);
     }
 
     private MultiNormal(Matrix a, Vector offset, int dimension) {
