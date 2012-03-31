@@ -17,46 +17,69 @@
 
 package org.apache.mahout.knn.means;
 
-import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.Iterables;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.knn.Brute;
 import org.apache.mahout.knn.Centroid;
-import org.apache.mahout.knn.VectorIterableView;
+import org.apache.mahout.knn.DelegatingVector;
 import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.knn.search.ProjectionSearch;
+import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.MatrixSlice;
-import org.apache.mahout.math.VectorIterable;
 
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
 public class StreamingKmeans {
-
-    private final int width;
     private DistanceMeasure distance;
-    private double beta;
+    private double distanceCutoff;
 
-    public StreamingKmeans(VectorIterable data, DistanceMeasure distance, int maxClusters) {
+    public ProjectionSearch cluster(DistanceMeasure distance, Iterable<MatrixSlice> data, int maxClusters) {
+        distanceCutoff = estimateBeta(data);
         this.distance = distance;
-        VectorIterable top = new VectorIterableView(data, 0, 100);
+        ProjectionSearch centroids = clusterInternal(data, maxClusters);
 
-        // first we need to have a reasonable value for what a "small" distance is
-        beta = Double.POSITIVE_INFINITY;
-        for (List<Brute.Result> distances : new Brute(top).search(top, 1)) {
-            final double x = distances.get(0).getScore();
-            if (x != 0 && x < beta) {
-                beta = x;
-            }
+        int width = data.iterator().next().vector().size();
+        ProjectionSearch r = new ProjectionSearch(width, distance, 4);
+        for (MatrixSlice centroid : centroids) {
+            Centroid c = new Centroid(centroid.index(), new DenseVector(centroid.vector()));
+            c.setWeight(0);
+            r.add(c);
         }
 
-        width = top.iterator().next().vector().size();
-        cluster(data, maxClusters);
+        for (MatrixSlice row : data) {
+            WeightedVector closest = r.search(row.vector(), 1, 10).get(0);
+
+            // merge against existing
+            Centroid c = (Centroid) closest.getVector();
+            r.remove(c);
+            c.update(row.vector());
+            r.add(c);
+        }
+        return r;
     }
 
-    private <T extends Iterable<MatrixSlice>> ProjectionSearch cluster(T data, int maxClusters) {
+    public double estimateBeta(Iterable<MatrixSlice> data) {
+        Iterable<MatrixSlice> top = Iterables.limit(data, 100);
+
+        // first we need to have a reasonable value for what a "small" distance is
+        // so we find the shortest distance between any of the first hundred data points
+        distanceCutoff = Double.POSITIVE_INFINITY;
+        for (List<Brute.Result> distances : new Brute(top).search(top, 2)) {
+            if (distances.size() > 1) {
+                final double x = distances.get(1).getScore();
+                if (x != 0 && x < distanceCutoff) {
+                    distanceCutoff = x;
+                }
+            }
+        }
+        return distanceCutoff;
+    }
+
+    private ProjectionSearch clusterInternal(Iterable<MatrixSlice> data, int maxClusters) {
+        int width = data.iterator().next().vector().size();
         ProjectionSearch centroids = new ProjectionSearch(width, distance, 4);
 
         // now we scan the data and either add each point to the nearest group or create a new group
@@ -64,36 +87,26 @@ public class StreamingKmeans {
         Random rand = RandomUtils.getRandom();
         for (MatrixSlice row : data) {
             if (centroids.size() == 0) {
-                centroids.add(row.vector());
+                centroids.add(new Centroid(centroids.size(), row.vector()));
             } else {
                 // estimate distance d to closest centroid
-                WeightedVector closest = centroids.search(row.vector(), 10, 1).get(0);
+                WeightedVector closest = centroids.search(row.vector(), 1, 10).get(0);
 
-                if (rand.nextDouble() < closest.getWeight() / beta) {
-                    Centroid c = (Centroid) closest.getVector();
-                    c.update(row.vector());
+                if (rand.nextDouble() < closest.getWeight() / distanceCutoff) {
+                    // add new centroid
+                    centroids.add(new Centroid(centroids.size(), new DenseVector(row.vector())));
                 } else {
-                    centroids.add(new Centroid(centroids.size(), row.vector()));
+                    // merge against existing
+                    Centroid c = (Centroid) closest.getVector();
+                    centroids.remove(c);
+                    c.update(row.vector());
+                    centroids.add(c);
                 }
             }
-            
-            while (centroids.size() > maxClusters) {
-                beta *= 1.5;
-                final Collection<WeightedVector> v = centroids.getVectors();
-                centroids = cluster(new Iterable<MatrixSlice>() {
-                    @Override
-                    public Iterator<MatrixSlice> iterator() {
-                        return new AbstractIterator<MatrixSlice>() {
-                            int index = 0;
-                            Iterator<WeightedVector> data = v.iterator();
 
-                            @Override
-                            protected MatrixSlice computeNext() {
-                                return new MatrixSlice(data.next(), index++);
-                            }
-                        };
-                    }
-                }, maxClusters);
+            if (centroids.size() > maxClusters) {
+                distanceCutoff *= 1.5;
+                centroids = clusterInternal(centroids, maxClusters);
             }
         }
         return centroids;

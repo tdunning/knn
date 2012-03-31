@@ -30,6 +30,10 @@ import java.util.Iterator;
 public class DelegatingVector extends AbstractVector {
     protected Vector delegate;
 
+    protected DelegatingVector(int size) {
+        super(size);
+    }
+
     public DelegatingVector(Vector v) {
         super(v.size());
         delegate = v;

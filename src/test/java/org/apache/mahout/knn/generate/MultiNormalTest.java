@@ -33,36 +33,36 @@ public class MultiNormalTest {
     }
 
     @Test
-  public void testDiagonal() {
-    final DenseVector offset = new DenseVector(new double[]{6, 3, 0});
-    MultiNormal n = new MultiNormal(
-      new DenseVector(new double[]{1, 2, 5}), offset);
+    public void testDiagonal() {
+        final DenseVector offset = new DenseVector(new double[]{6, 3, 0});
+        MultiNormal n = new MultiNormal(
+                new DenseVector(new double[]{1, 2, 5}), offset);
 
-    OnlineSummarizer[] s = {
-      new OnlineSummarizer(),
-      new OnlineSummarizer(),
-      new OnlineSummarizer()
-    };
+        OnlineSummarizer[] s = {
+                new OnlineSummarizer(),
+                new OnlineSummarizer(),
+                new OnlineSummarizer()
+        };
 
-    OnlineSummarizer[] cross = {
-      new OnlineSummarizer(),
-      new OnlineSummarizer(),
-      new OnlineSummarizer()
-    };
+        OnlineSummarizer[] cross = {
+                new OnlineSummarizer(),
+                new OnlineSummarizer(),
+                new OnlineSummarizer()
+        };
 
-    for (int i = 0; i < 10000; i++) {
-      Vector v = n.sample();
-      for (int j = 0; j < 3; j++) {
-        s[j].add(v.get(j) - offset.get(j));
-        int k1 = j % 2;
-        int k2 = (j + 1) / 2 + 1;
-        cross[j].add((v.get(k1) - offset.get(k1)) * (v.get(k2) - offset.get(k2)));
-      }
+        for (int i = 0; i < 10000; i++) {
+            Vector v = n.sample();
+            for (int j = 0; j < 3; j++) {
+                s[j].add(v.get(j) - offset.get(j));
+                int k1 = j % 2;
+                int k2 = (j + 1) / 2 + 1;
+                cross[j].add((v.get(k1) - offset.get(k1)) * (v.get(k2) - offset.get(k2)));
+            }
+        }
+
+        for (int j = 0; j < 3; j++) {
+            assertEquals(0, s[j].getMean() / s[j].getSD(), 0.04);
+            assertEquals(0, cross[j].getMean() / cross[j].getSD(), 0.04);
+        }
     }
-
-    for (int j = 0; j < 3; j++) {
-      assertEquals(0, s[j].getMean() / s[j].getSD(), 0.04);
-      assertEquals(0, cross[j].getMean() / cross[j].getSD(), 0.04);
-    }
-  }
 }

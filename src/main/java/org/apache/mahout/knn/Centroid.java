@@ -17,105 +17,57 @@
 
 package org.apache.mahout.knn;
 
-import org.apache.mahout.math.AbstractVector;
-import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.function.DoubleDoubleFunction;
-
-import java.util.Iterator;
 
 /**
  * A centroid is a weighted vector.  We have it delegate to the vector itself for lots of operations
  * to make it easy to use vector search classes and such.
  */
-public class Centroid extends AbstractVector {
-    private double weight;
+public class Centroid extends WeightedVector {
     private int key;
-    private Vector delegate;
 
     public Centroid(Centroid original) {
-        super(original.size());
-        weight = original.getWeight();
-        delegate = original.delegate.clone();
+        super(original.size(), original.getWeight());
+        delegate = original.like();
+        delegate.assign(original);
         key = original.getKey();
     }
 
     public Centroid(int key, Vector initialValue) {
-        super(initialValue.size());
+        super(initialValue, 1);
         this.key = key;
-        this.delegate = initialValue.clone();
         this.weight = 1;
     }
 
     public Centroid(int key, Vector initialValue, double weight) {
-        super(initialValue.size());
-        this.key = key;
-        this.delegate = initialValue.clone();
+        this(key, initialValue);
         this.weight = weight;
     }
 
     public void update(final Centroid other) {
-        delegate.assign(other.delegate, new DoubleDoubleFunction() {
-            double totalWeight = weight + other.weight;
-
-            @Override
-            public double apply(double v, double v1) {
-                return (weight * v + other.weight * v1) / totalWeight;
-            }
-        });
-        weight += other.weight;
+        update(other.delegate, other.weight);
     }
     
+    public void update(Vector v) {
+        update(v, 1);
+    }
+
+    public void update(Vector v, final double w) {
+        final double totalWeight = weight + w;
+        delegate.assign(v, new DoubleDoubleFunction() {
+            @Override
+            public double apply(double v, double v1) {
+                return (weight * v + w * v1) / totalWeight;
+            }
+        });
+        weight += w;
+    }
+
     public void replace(final Centroid other) {
         delegate.assign(other.delegate);
         weight = other.weight;
         
-    }
-
-    
-    @Override
-    protected Matrix matrixLike(int i, int i1) {
-        throw new UnsupportedOperationException("Can't make a matrix like this");
-    }
-
-    @Override
-    public boolean isDense() {
-        return delegate.isDense();
-    }
-
-    @Override
-    public boolean isSequentialAccess() {
-        return delegate.isSequentialAccess();
-    }
-
-    @Override
-    public Iterator<Element> iterator() {
-        return delegate.iterator();
-    }
-
-    @Override
-    public Iterator<Element> iterateNonZero() {
-        return delegate.iterateNonZero();
-    }
-
-    @Override
-    public double getQuick(int i) {
-        return delegate.getQuick(i);
-    }
-
-    @Override
-    public Vector like() {
-        return delegate.like();
-    }
-
-    @Override
-    public void setQuick(int i, double v) {
-        delegate.setQuick(i, v);
-    }
-
-    @Override
-    public int getNumNondefaultElements() {
-        return delegate.getNumNondefaultElements();
     }
 
     public int getKey() {
@@ -127,16 +79,12 @@ public class Centroid extends AbstractVector {
     
     }
 
-    public Vector getVector() {
-        return delegate;
-    }
-
     public double getWeight() {
         return weight;
     }
     
-    public void setWeight(int newWeight) {
-        this.weight=newWeight;
+    public void setWeight(double newWeight) {
+        this.weight = newWeight;
     }
     
     public void addWeight() {
@@ -145,6 +93,5 @@ public class Centroid extends AbstractVector {
     
     public String toString() {
     	return new StringBuilder("key = ").append(String.valueOf(key)).append(", weight = ").append(String.valueOf(weight)).append(", delegate = ").append(delegate.toString()).toString();
-    	
     }
 }

@@ -23,7 +23,12 @@ import org.apache.mahout.math.Vector;
  * Decorates a vector with a floating point weight.
  */
 public class WeightedVector extends DelegatingVector implements Comparable<WeightedVector> {
-    private final double weight;
+    protected double weight;
+
+    protected WeightedVector(int size, double weight) {
+        super(size);
+        this.weight = weight;
+    }
 
     public WeightedVector(Vector v, double weight) {
         super(v);
@@ -46,9 +51,23 @@ public class WeightedVector extends DelegatingVector implements Comparable<Weigh
 
     @Override
     public int compareTo(WeightedVector other) {
+        if (this == other) {
+            return 0;
+        }
         int r = Double.compare(weight, other.getWeight());
         if (r == 0) {
-            return hashCode() - other.hashCode();
+            double diff = this.minus(other).norm(1);
+            if (diff < 1e-12) {
+                return 0;
+            } else {
+                for (Element element : this) {
+                    r = Double.compare(element.get(), other.get(element.index()));
+                    if (r != 0) {
+                        return r;
+                    }
+                }
+                return 0;
+            }
         } else {
             return r;
         }

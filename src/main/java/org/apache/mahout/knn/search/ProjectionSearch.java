@@ -43,7 +43,7 @@ import java.util.TreeSet;
  */
 public class ProjectionSearch implements Iterable<MatrixSlice> {
     private final List<TreeSet<WeightedVector>> vectors;
-    
+
     private DistanceMeasure distance;
     private List<Vector> basis;
 
@@ -63,7 +63,7 @@ public class ProjectionSearch implements Iterable<MatrixSlice> {
         // we want to create several projections.  Each is alike except for the
         // direction of the projection
         for (int i = 0; i < projections; i++) {
-        	// create a random vector to use for the basis of the projection
+            // create a random vector to use for the basis of the projection
             final DenseVector projection = new DenseVector(d);
             projection.assign(random);
             projection.normalize();
@@ -108,12 +108,11 @@ public class ProjectionSearch implements Iterable<MatrixSlice> {
                 candidates.add(candidate.getVector());
             }
         }
-        System.out.printf("%d %d\n", candidates.size(), candidates.elementSet().size());
 
         // if searchSize * vectors.size() is small enough not to cause much memory pressure, this is probably
         // just as fast as a priority queue here.
         List<WeightedVector> top = Lists.newArrayList();
-        for (Vector candidate : candidates) {
+        for (Vector candidate : candidates.elementSet()) {
             top.add(new WeightedVector(candidate, distance.distance(query, candidate)));
         }
         Collections.sort(top);
@@ -132,8 +131,23 @@ public class ProjectionSearch implements Iterable<MatrixSlice> {
 
             @Override
             protected MatrixSlice computeNext() {
-                return new MatrixSlice(data.next(), index++);
+                if (!data.hasNext()) {
+                    return endOfData();
+                } else {
+                    return new MatrixSlice(data.next(), index++);
+                }
             }
         };
+    }
+
+    public void remove(Vector vector) {
+        Iterator<Vector> basisVectors = basis.iterator();
+        for (TreeSet<WeightedVector> projection : vectors) {
+            WeightedVector v = new WeightedVector(vector, basisVectors.next());
+            boolean r = projection.remove(v);
+            if (!r) {
+                System.out.printf("Couldn't remove vector! %s\n", vector);
+            }
+        }
     }
 }
