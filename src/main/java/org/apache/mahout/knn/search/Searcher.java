@@ -27,13 +27,14 @@ import java.util.List;
  * Describes how we search vectors.
  */
 public abstract class Searcher {
-    public abstract void add(Vector v);
+    public abstract void add(Vector v, int index);
 
     public abstract List<WeightedVector> search(Vector query, int i);
 
     public void addAll(Iterable<MatrixSlice> data) {
+        int i = size();
         for (MatrixSlice slice : data) {
-            add(slice.vector());
+            add(slice.vector(), i++);
         }
     }
 

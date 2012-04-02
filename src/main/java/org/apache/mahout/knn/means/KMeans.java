@@ -141,7 +141,7 @@ public class KMeans {
 		    				centroidList.get(i).update(centroidList.get(i + 1));
 		    				centroidList.remove(i + 1);
 		    				for(int j = 0; j<sizeIndex; j++) {
-		    					centroidList.get(j).setKey(j);
+		    					centroidList.get(j).setIndex(j);
 		    				}
 		    				break;
 		    			}

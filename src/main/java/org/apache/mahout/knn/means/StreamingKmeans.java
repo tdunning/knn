@@ -35,18 +35,23 @@ public class StreamingKmeans {
     private double distanceCutoff;
 
     public ProjectionSearch cluster(DistanceMeasure distance, Iterable<MatrixSlice> data, int maxClusters) {
-        distanceCutoff = estimateBeta(data);
+        // initialize scale
+        distanceCutoff = estimateCutoff(data);
         this.distance = distance;
+
+        // cluster the data
         ProjectionSearch centroids = clusterInternal(data, maxClusters);
 
+        // how make a clean set of empty centroids to get ready for final pass through the data
         int width = data.iterator().next().vector().size();
         ProjectionSearch r = new ProjectionSearch(width, distance, 4, 10);
         for (MatrixSlice centroid : centroids) {
             Centroid c = new Centroid(centroid.index(), new DenseVector(centroid.vector()));
             c.setWeight(0);
-            r.add(c);
+            r.add(c, c.getIndex());
         }
 
+        // then make a final pass over the data
         for (MatrixSlice row : data) {
             WeightedVector closest = r.search(row.vector(), 1).get(0);
 
@@ -54,12 +59,12 @@ public class StreamingKmeans {
             Centroid c = (Centroid) closest.getVector();
             r.remove(c);
             c.update(row.vector());
-            r.add(c);
+            r.add(c, c.getIndex());
         }
         return r;
     }
 
-    public double estimateBeta(Iterable<MatrixSlice> data) {
+    public double estimateCutoff(Iterable<MatrixSlice> data) {
         Iterable<MatrixSlice> top = Iterables.limit(data, 100);
 
         // first we need to have a reasonable value for what a "small" distance is
@@ -85,20 +90,21 @@ public class StreamingKmeans {
         Random rand = RandomUtils.getRandom();
         for (MatrixSlice row : data) {
             if (centroids.size() == 0) {
-                centroids.add(new Centroid(centroids.size(), row.vector()));
+                // add first centroid on first vector
+                centroids.add(new Centroid(centroids.size(), row.vector()), 0);
             } else {
                 // estimate distance d to closest centroid
                 WeightedVector closest = centroids.search(row.vector(), 1).get(0);
 
                 if (rand.nextDouble() < closest.getWeight() / distanceCutoff) {
                     // add new centroid
-                    centroids.add(new Centroid(centroids.size(), new DenseVector(row.vector())));
+                    centroids.add(new Centroid(centroids.size(), new DenseVector(row.vector())), centroids.size());
                 } else {
                     // merge against existing
                     Centroid c = (Centroid) closest.getVector();
                     centroids.remove(c);
                     c.update(row.vector());
-                    centroids.add(c);
+                    centroids.add(c, c.getIndex());
                 }
             }
 

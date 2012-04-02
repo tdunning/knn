@@ -77,12 +77,13 @@ public class ProjectionSearch extends Searcher implements Iterable<MatrixSlice> 
     /**
      * Adds a vector into the set of projections for later searching.
      * @param v  The vector to add.
+     * @param index
      */
-    public void add(Vector v) {
+    public void add(Vector v, int index) {
         // add to each projection separately
         Iterator<Vector> projections = basis.iterator();
         for (TreeSet<WeightedVector> s : vectors) {
-            s.add(WeightedVector.project(v, projections.next()));
+            s.add(WeightedVector.project(v, projections.next(), index));
         }
     }
 
@@ -95,23 +96,24 @@ public class ProjectionSearch extends Searcher implements Iterable<MatrixSlice> 
     }
 
     public List<WeightedVector> search(final Vector query, int n) {
-        Multiset<Vector> candidates = HashMultiset.create();
+        Multiset<WeightedVector> candidates = HashMultiset.create();
         Iterator<Vector> projections = basis.iterator();
         for (TreeSet<WeightedVector> v : vectors) {
             WeightedVector projectedQuery = WeightedVector.project(query, projections.next());
             for (WeightedVector candidate : Iterables.limit(v.tailSet(projectedQuery, true), searchSize)) {
-                candidates.add(candidate.getVector());
+                candidates.add(new WeightedVector(candidate.getVector(), 0, candidate.getIndex()));
             }
             for (WeightedVector candidate : Iterables.limit(v.headSet(projectedQuery, false).descendingSet(), searchSize)) {
-                candidates.add(candidate.getVector());
+                candidates.add(new WeightedVector(candidate.getVector(), 0, candidate.getIndex()));
             }
         }
 
         // if searchSize * vectors.size() is small enough not to cause much memory pressure, this is probably
         // just as fast as a priority queue here.
         List<WeightedVector> top = Lists.newArrayList();
-        for (Vector candidate : candidates.elementSet()) {
-            top.add(new WeightedVector(candidate, distance.distance(query, candidate)));
+        for (WeightedVector candidate : candidates.elementSet()) {
+            candidate.setWeight(query.dot(candidate));
+            top.add(candidate);
         }
         Collections.sort(top);
         return top.subList(0, n);
@@ -151,7 +153,7 @@ public class ProjectionSearch extends Searcher implements Iterable<MatrixSlice> 
     public void remove(Vector vector) {
         Iterator<Vector> basisVectors = basis.iterator();
         for (TreeSet<WeightedVector> projection : vectors) {
-            WeightedVector v = new WeightedVector(vector, basisVectors.next());
+            WeightedVector v = new WeightedVector(vector, basisVectors.next(), -1);
             boolean r = projection.remove(v);
             if (!r) {
                 System.out.printf("Couldn't remove vector! %s\n", vector);

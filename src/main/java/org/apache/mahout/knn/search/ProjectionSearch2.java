@@ -39,7 +39,10 @@ import java.util.Comparator;
 
 /**
  * Does approximate nearest neighbor dudes search by projecting the data.
+ *
+ * See ProjectionSearch3 for a cleaned up version of this.
  */
+@Deprecated
 public class ProjectionSearch2 {
     private final List<TreeSet<WeightedVector>> vectors;
     
@@ -79,11 +82,11 @@ public class ProjectionSearch2 {
      * Adds a vector into the set of projections for later searching.
      * @param v  The vector to add.
      */
-    public void add(Vector v) {
+    public void add(Vector v, int index) {
         // add to each projection separately
         Iterator<Vector> projections = basis.iterator();
         for (TreeSet<WeightedVector> s : vectors) {
-            s.add(new WeightedVector(v, projections.next()));
+            s.add(new WeightedVector(v, projections.next(), index));
         }
     }
 
@@ -96,7 +99,7 @@ public class ProjectionSearch2 {
         
         Iterator<Vector> projections = basis.iterator();
         for (TreeSet<WeightedVector> v : vectors) {
-            WeightedVector projectedQuery = new WeightedVector(query, projections.next());
+            WeightedVector projectedQuery = WeightedVector.project(query, projections.next());
             for (WeightedVector candidate : v) {
             	double dif = Math.abs(candidate.getWeight()-projectedQuery.getWeight());
             	

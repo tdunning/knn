@@ -42,7 +42,7 @@ public class ProjectionSearchEval {
             for (int i = 0; i < 40000; i++) {
                 Vector v = new DenseVector(20);
                 v.assign(random);
-                ps.add(v);
+                ps.add(v, i);
                 ref.add(v);
             }
 

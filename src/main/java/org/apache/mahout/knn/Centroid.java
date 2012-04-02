@@ -25,28 +25,22 @@ import org.apache.mahout.math.function.DoubleDoubleFunction;
  * to make it easy to use vector search classes and such.
  */
 public class Centroid extends WeightedVector {
-    private int key;
-
     public Centroid(Centroid original) {
-        super(original.size(), original.getWeight());
+        super(original.size(), original.getWeight(), original.getKey());
         delegate = original.like();
         delegate.assign(original);
-        key = original.getKey();
     }
 
     public Centroid(int key, Vector initialValue) {
-        super(initialValue, 1);
-        this.key = key;
-        this.weight = 1;
+        super(initialValue, 1, key);
     }
 
     public Centroid(int key, Vector initialValue, double weight) {
-        this(key, initialValue);
-        this.weight = weight;
+        super(initialValue, weight, key);
     }
 
     public void update(final Centroid other) {
-        update(other.delegate, other.weight);
+        update(other.delegate, other.getWeight());
     }
 
     public void update(Vector v) {
@@ -54,6 +48,7 @@ public class Centroid extends WeightedVector {
     }
 
     public void update(Vector v, final double w) {
+        final double weight = getWeight();
         final double totalWeight = weight + w;
         delegate.assign(v, new DoubleDoubleFunction() {
             @Override
@@ -61,31 +56,24 @@ public class Centroid extends WeightedVector {
                 return (weight * v + w * v1) / totalWeight;
             }
         });
-        weight += w;
+        setWeight(weight + w);
     }
 
+    /**
+     * Gets the index of this centroid.  Use getIndex instead to maintain standard names.
+     * @return
+     */
+    @Deprecated
     public int getKey() {
-        return key;
-    }
-
-    public void setKey(int newKey) {
-        this.key = newKey;
-
-    }
-
-    public double getWeight() {
-        return weight;
-    }
-
-    public void setWeight(double newWeight) {
-        this.weight = newWeight;
+        return getIndex();
     }
 
     public void addWeight() {
-        this.weight = this.weight + 1;
+        setWeight(getWeight() + 1);
     }
 
     public String toString() {
-        return new StringBuilder("key = ").append(String.valueOf(key)).append(", weight = ").append(String.valueOf(weight)).append(", delegate = ").append(delegate.toString()).toString();
+        return String.format("key = %d, weight = %.2f, vector = %s", getIndex(), getWeight(), delegate);
     }
+
 }

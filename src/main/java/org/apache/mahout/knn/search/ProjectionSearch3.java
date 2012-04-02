@@ -75,22 +75,27 @@ public class ProjectionSearch3 extends Searcher {
     /**
      * Adds a vector into the set of projections for later searching.
      * @param v  The vector to add.
+     * @param index
      */
-    public void add(Vector v) {
+    public void add(Vector v, int index) {
         // add to each projection separately
         Iterator<Vector> projections = basis.iterator();
         for (TreeSet<WeightedVector> s : vectors) {
-            s.add(new WeightedVector(v, projections.next()));
+            s.add(new WeightedVector(v, projections.next(), index));
         }
     }
 
     public List<WeightedVector> search(final Vector query, int n) {
-        Map<Vector, Double> distances = Maps.newHashMap();
+        // this is keyed by the underlying vector to make sure that comparisons
+        // work right between different projections.  The value is a shallow copy of
+        // the result vector so that we can set the weight to the actual distance from
+        // the query
+        Map<Vector, WeightedVector> distances = Maps.newHashMap();
 
         // for each projection
         Iterator<Vector> projections = basis.iterator();
         for (TreeSet<WeightedVector> v : vectors) {
-            WeightedVector projectedQuery = new WeightedVector(query, projections.next());
+            WeightedVector projectedQuery = WeightedVector.project(query, projections.next());
 
             // Collect nearby vectors
             List<WeightedVector> candidates = Lists.newArrayList();
@@ -109,25 +114,31 @@ public class ProjectionSearch3 extends Searcher {
 
             // all unmentioned vectors have to be put at least as far away as we can justify
             for (Vector vector : unmentioned) {
-                double x = distances.get(vector);
-                if (maxDistance > x) {
-                    distances.put(vector, maxDistance);
+                WeightedVector x = distances.get(vector);
+                if (maxDistance > x.getWeight()) {
+                    x.setWeight(maxDistance);
                 }
             }
 
             // and all candidates get a real test
             for (WeightedVector candidate : candidates) {
-                Double x = distances.get(candidate);
-                if (x == null || x < candidate.getWeight()) {
-                    distances.put(candidate.getVector(), candidate.getWeight());
+                WeightedVector x = distances.get(candidate);
+                if (x == null) {
+                    // have to copy here because we may mutate weights later on
+                    distances.put(candidate.getVector(), new WeightedVector(candidate.getVector(), candidate.getWeight(), candidate.getIndex()));
+                } else if (x.getWeight() < candidate.getWeight()) {
+                    x.setWeight(candidate.getWeight());
                 }
             }
         }
 
-        // now sort by actual distance
+        // now collect the results and sort by actual distance
+        // TODO It doesn't seem to make a great gob of sense to collect the max projected distance and then toss it away
         List<WeightedVector> r = Lists.newArrayList();
-        for (Vector vector : distances.keySet()) {
-            r.add(new WeightedVector(vector, distance.distance(query, vector)));
+        for (Vector key : distances.keySet()) {
+            WeightedVector x = distances.get(key);
+            x.setWeight(distance.distance(query, key));
+            r.add(x);
         }
 
         Collections.sort(r);

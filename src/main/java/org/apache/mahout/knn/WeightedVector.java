@@ -20,28 +20,36 @@ package org.apache.mahout.knn;
 import org.apache.mahout.math.Vector;
 
 /**
- * Decorates a vector with a floating point weight.
+ * Decorates a vector with a floating point weight and an index.
  */
 public class WeightedVector extends DelegatingVector implements Comparable<WeightedVector> {
-    protected double weight;
+    private double weight;
+    private int index;
 
-    protected WeightedVector(int size, double weight) {
+    protected WeightedVector(int size, double weight, int index) {
         super(size);
         this.weight = weight;
+        this.index = index;
     }
 
-    public WeightedVector(Vector v, double weight) {
+    public WeightedVector(Vector v, double weight, int index) {
         super(v);
         this.weight = weight;
+        this.index = index;
     }
     
-    public WeightedVector(Vector v, Vector projection) {
+    public WeightedVector(Vector v, Vector projection, int index) {
         super(v);
+        this.index = index;
         this.weight = v.dot(projection);
     }
     
     public static WeightedVector project(Vector v, Vector projection) {
-        return new WeightedVector(v, projection);
+        return project(v, projection, -1);
+    }
+
+    public static WeightedVector project(Vector v, Vector projection, int index) {
+        return new WeightedVector(v, projection, index);
     }
 
     public double getWeight() {
@@ -71,5 +79,17 @@ public class WeightedVector extends DelegatingVector implements Comparable<Weigh
         } else {
             return r;
         }
+    }
+
+    public int getIndex() {
+        return index;
+    }
+
+    public void setWeight(double newWeight) {
+        this.weight = newWeight;
+    }
+
+    public void setIndex(int index) {
+        this.index = index;
     }
 }
