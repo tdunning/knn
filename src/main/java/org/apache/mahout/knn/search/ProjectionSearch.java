@@ -77,7 +77,7 @@ public class ProjectionSearch extends Searcher implements Iterable<MatrixSlice> 
     /**
      * Adds a vector into the set of projections for later searching.
      * @param v  The vector to add.
-     * @param index
+     * @param index   An integer for tracking which vector is which
      */
     public void add(Vector v, int index) {
         // add to each projection separately
@@ -112,7 +112,7 @@ public class ProjectionSearch extends Searcher implements Iterable<MatrixSlice> 
         // just as fast as a priority queue here.
         List<WeightedVector> top = Lists.newArrayList();
         for (WeightedVector candidate : candidates.elementSet()) {
-            candidate.setWeight(query.dot(candidate));
+            candidate.setWeight(distance.distance(query, candidate));
             top.add(candidate);
         }
         Collections.sort(top);

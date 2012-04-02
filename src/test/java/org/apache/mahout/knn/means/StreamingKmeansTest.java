@@ -21,7 +21,7 @@ import com.google.common.collect.Lists;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.apache.mahout.knn.generate.MultiNormal;
-import org.apache.mahout.knn.search.ProjectionSearch;
+import org.apache.mahout.knn.search.Searcher;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.MatrixSlice;
@@ -45,7 +45,6 @@ public class StreamingKmeansTest {
     @Test
     public void testClustering1() {
         Matrix data = new DenseMatrix(800, 3);
-        int k = 0;
         Matrix mean = new DenseMatrix(8, 3);
         List<MultiNormal> rowSamplers = Lists.newArrayList();
         for (int i = 0; i < 8; i++) {
@@ -61,7 +60,7 @@ public class StreamingKmeansTest {
         }
 
 
-        ProjectionSearch r = new StreamingKmeans().cluster(new EuclideanDistanceMeasure(), data, 30);
+        Searcher r = new StreamingKmeans().cluster(new EuclideanDistanceMeasure(), data, 30);
 
     }
 }
