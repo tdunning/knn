@@ -23,6 +23,7 @@ import org.apache.mahout.math.Vector;
  * Decorates a vector with a floating point weight and an index.
  */
 public class WeightedVector extends DelegatingVector implements Comparable<WeightedVector> {
+    private static final int INVALID_INDEX = -1;
     private double weight;
     private int index;
 
@@ -45,7 +46,7 @@ public class WeightedVector extends DelegatingVector implements Comparable<Weigh
     }
     
     public static WeightedVector project(Vector v, Vector projection) {
-        return project(v, projection, -1);
+        return project(v, projection, INVALID_INDEX);
     }
 
     public static WeightedVector project(Vector v, Vector projection, int index) {
@@ -91,5 +92,10 @@ public class WeightedVector extends DelegatingVector implements Comparable<Weigh
 
     public void setIndex(int index) {
         this.index = index;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("index=%d, weight=%.2f, v=%s", index, weight, getVector());
     }
 }

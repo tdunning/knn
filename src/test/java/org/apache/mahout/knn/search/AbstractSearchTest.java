@@ -36,6 +36,15 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public abstract class AbstractSearchTest {
+    protected static Matrix randomData() {
+        Matrix data = new DenseMatrix(1000, 20);
+        MultiNormal gen = new MultiNormal(20);
+        for (MatrixSlice slice : data) {
+            slice.vector().assign(gen.sample());
+        }
+        return data;
+    }
+
     public abstract Iterable<MatrixSlice> testData();
 
     public abstract Searcher getSearch();

@@ -18,8 +18,6 @@
 package org.apache.mahout.knn.search;
 
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
-import org.apache.mahout.knn.generate.MultiNormal;
-import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.MatrixSlice;
 import org.junit.BeforeClass;
@@ -30,11 +28,7 @@ public class ProjectionSearch3Test extends AbstractSearchTest {
 
     @BeforeClass
     public static void setUp() {
-        data = new DenseMatrix(1000, 20);
-        MultiNormal gen = new MultiNormal(20);
-        for (MatrixSlice slice : data) {
-            slice.vector().assign(gen.sample());
-        }
+        data = randomData();
 
         searcher = new ProjectionSearch3(20, new EuclideanDistanceMeasure(), 4, 20);
     }

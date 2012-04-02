@@ -34,6 +34,7 @@ import java.util.concurrent.Executors;
 /**
  * Search for nearest neighbors using complete search.
  */
+// TODO make search return a weighted vector
 public class Brute {
     // matrix of vectors for comparison
     private final Iterable<MatrixSlice> reference;
@@ -157,6 +158,7 @@ public class Brute {
         return results;
     }
 
+    @Deprecated
     public class Result implements Comparable<Result> {
         private int index;
         private double score;

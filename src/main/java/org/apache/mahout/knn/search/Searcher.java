@@ -17,6 +17,7 @@
 
 package org.apache.mahout.knn.search;
 
+import org.apache.mahout.knn.Centroid;
 import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.Vector;
@@ -26,10 +27,10 @@ import java.util.List;
 /**
  * Describes how we search vectors.
  */
-public abstract class Searcher {
+public abstract class Searcher implements Iterable<MatrixSlice> {
     public abstract void add(Vector v, int index);
 
-    public abstract List<WeightedVector> search(Vector query, int i);
+    public abstract List<WeightedVector> search(Vector query, int limit);
 
     public void addAll(Iterable<MatrixSlice> data) {
         int i = size();
@@ -43,4 +44,9 @@ public abstract class Searcher {
     public abstract int getSearchSize();
     
     public abstract void setSearchSize(int size);
+
+
+    public void remove(Vector v) {
+        throw new UnsupportedOperationException("Can't remove a vector from a " + this.getClass().getName());
+    }
 }

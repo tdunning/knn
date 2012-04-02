@@ -18,15 +18,18 @@
 package org.apache.mahout.knn.means;
 
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.knn.Brute;
 import org.apache.mahout.knn.Centroid;
 import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.knn.search.ProjectionSearch;
+import org.apache.mahout.knn.search.Searcher;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.MatrixSlice;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -34,17 +37,17 @@ public class StreamingKmeans {
     private DistanceMeasure distance;
     private double distanceCutoff;
 
-    public ProjectionSearch cluster(DistanceMeasure distance, Iterable<MatrixSlice> data, int maxClusters) {
+    public Searcher cluster(DistanceMeasure distance, Iterable<MatrixSlice> data, int maxClusters) {
         // initialize scale
         distanceCutoff = estimateCutoff(data);
         this.distance = distance;
 
         // cluster the data
-        ProjectionSearch centroids = clusterInternal(data, maxClusters);
+        Searcher centroids = clusterInternal(data, maxClusters);
 
         // how make a clean set of empty centroids to get ready for final pass through the data
         int width = data.iterator().next().vector().size();
-        ProjectionSearch r = new ProjectionSearch(width, distance, 4, 10);
+        Searcher r = new ProjectionSearch(width, distance, 4, 10);
         for (MatrixSlice centroid : centroids) {
             Centroid c = new Centroid(centroid.index(), new DenseVector(centroid.vector()));
             c.setWeight(0);
@@ -81,9 +84,9 @@ public class StreamingKmeans {
         return distanceCutoff;
     }
 
-    private ProjectionSearch clusterInternal(Iterable<MatrixSlice> data, int maxClusters) {
+    private Searcher clusterInternal(Iterable<MatrixSlice> data, int maxClusters) {
         int width = data.iterator().next().vector().size();
-        ProjectionSearch centroids = new ProjectionSearch(width, distance, 4, 10);
+        Searcher centroids = new ProjectionSearch(width, distance, 4, 10);
 
         // now we scan the data and either add each point to the nearest group or create a new group
         // when we get too many groups, then we need to increase the threshold and rescan our current groups
@@ -97,7 +100,7 @@ public class StreamingKmeans {
                 WeightedVector closest = centroids.search(row.vector(), 1).get(0);
 
                 if (rand.nextDouble() < closest.getWeight() / distanceCutoff) {
-                    // add new centroid
+                    // add new centroid, note that the vector is copied because we may mutate it later
                     centroids.add(new Centroid(centroids.size(), new DenseVector(row.vector())), centroids.size());
                 } else {
                     // merge against existing
@@ -110,8 +113,10 @@ public class StreamingKmeans {
 
             if (centroids.size() > maxClusters) {
                 distanceCutoff *= 1.5;
-                // TODO shuffle centriod list
-                centroids = clusterInternal(centroids, maxClusters);
+                // TODO does shuffling help?
+                List<MatrixSlice> shuffled = Lists.newArrayList(centroids);
+                Collections.shuffle(shuffled);
+                centroids = clusterInternal(shuffled, maxClusters);
             }
         }
         return centroids;
