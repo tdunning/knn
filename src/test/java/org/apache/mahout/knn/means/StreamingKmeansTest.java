@@ -21,7 +21,7 @@ import com.google.common.collect.Lists;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.apache.mahout.knn.generate.MultiNormal;
-import org.apache.mahout.knn.search.Searcher;
+import org.apache.mahout.knn.search.UpdatableSearcher;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.MatrixSlice;
@@ -60,7 +60,7 @@ public class StreamingKmeansTest {
         }
 
 
-        Searcher r = new StreamingKmeans().cluster(new EuclideanDistanceMeasure(), data, 30);
+        UpdatableSearcher r = new StreamingKmeans().cluster(new EuclideanDistanceMeasure(), data, 30);
 
     }
 }

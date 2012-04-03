@@ -45,7 +45,7 @@ public class ProjectionSearchTest extends AbstractSearchTest {
     }
 
     @Override
-    public Searcher getSearch() {
+    public UpdatableSearcher getSearch() {
         return searcher;
     }
 }

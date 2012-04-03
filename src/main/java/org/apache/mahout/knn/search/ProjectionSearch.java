@@ -41,7 +41,7 @@ import java.util.TreeSet;
 /**
  * Does approximate nearest neighbor dudes search by projecting the data.
  */
-public class ProjectionSearch extends Searcher implements Iterable<MatrixSlice> {
+public class ProjectionSearch extends UpdatableSearcher implements Iterable<MatrixSlice> {
     private final List<TreeSet<WeightedVector>> vectors;
 
     private DistanceMeasure distance;
@@ -150,14 +150,20 @@ public class ProjectionSearch extends Searcher implements Iterable<MatrixSlice> 
         };
     }
 
-    public void remove(Vector vector) {
-        Iterator<Vector> basisVectors = basis.iterator();
-        for (TreeSet<WeightedVector> projection : vectors) {
-            WeightedVector v = new WeightedVector(vector, basisVectors.next(), -1);
-            boolean r = projection.remove(v);
-            if (!r) {
-                System.out.printf("Couldn't remove vector! %s\n", vector);
+    public boolean remove(Vector vector) {
+        List<WeightedVector> x = search(vector, 1);
+        if (x.get(0).getWeight() < 1e-7) {
+            Iterator<Vector> basisVectors = basis.iterator();
+            for (TreeSet<WeightedVector> projection : vectors) {
+                WeightedVector v = new WeightedVector(vector, basisVectors.next(), -1);
+                boolean r = projection.remove(v);
+                if (!r) {
+                    throw new RuntimeException("Internal inconsistency in ProjectionSearch");
+                }
             }
+            return true;
+        } else {
+            return false;
         }
     }
 }

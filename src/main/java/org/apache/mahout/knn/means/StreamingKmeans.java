@@ -21,11 +21,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.common.distance.DistanceMeasure;
-import org.apache.mahout.knn.Brute;
+import org.apache.mahout.knn.search.Brute;
 import org.apache.mahout.knn.Centroid;
 import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.knn.search.ProjectionSearch;
-import org.apache.mahout.knn.search.Searcher;
+import org.apache.mahout.knn.search.UpdatableSearcher;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.MatrixSlice;
 
@@ -37,17 +37,17 @@ public class StreamingKmeans {
     private DistanceMeasure distance;
     private double distanceCutoff;
 
-    public Searcher cluster(DistanceMeasure distance, Iterable<MatrixSlice> data, int maxClusters) {
+    public UpdatableSearcher cluster(DistanceMeasure distance, Iterable<MatrixSlice> data, int maxClusters) {
         // initialize scale
         distanceCutoff = estimateCutoff(data);
         this.distance = distance;
 
         // cluster the data
-        Searcher centroids = clusterInternal(data, maxClusters);
+        UpdatableSearcher centroids = clusterInternal(data, maxClusters);
 
         // how make a clean set of empty centroids to get ready for final pass through the data
         int width = data.iterator().next().vector().size();
-        Searcher r = new ProjectionSearch(width, distance, 4, 10);
+        UpdatableSearcher r = new ProjectionSearch(width, distance, 4, 10);
         for (MatrixSlice centroid : centroids) {
             Centroid c = new Centroid(centroid.index(), new DenseVector(centroid.vector()));
             c.setWeight(0);
@@ -73,9 +73,9 @@ public class StreamingKmeans {
         // first we need to have a reasonable value for what a "small" distance is
         // so we find the shortest distance between any of the first hundred data points
         distanceCutoff = Double.POSITIVE_INFINITY;
-        for (List<Brute.Result> distances : new Brute(top).search(top, 2)) {
+        for (List<WeightedVector> distances : new Brute(top).search(top, 2)) {
             if (distances.size() > 1) {
-                final double x = distances.get(1).getScore();
+                final double x = distances.get(1).getWeight();
                 if (x != 0 && x < distanceCutoff) {
                     distanceCutoff = x;
                 }
@@ -84,9 +84,9 @@ public class StreamingKmeans {
         return distanceCutoff;
     }
 
-    private Searcher clusterInternal(Iterable<MatrixSlice> data, int maxClusters) {
+    private UpdatableSearcher clusterInternal(Iterable<MatrixSlice> data, int maxClusters) {
         int width = data.iterator().next().vector().size();
-        Searcher centroids = new ProjectionSearch(width, distance, 4, 10);
+        UpdatableSearcher centroids = new ProjectionSearch(width, distance, 4, 10);
 
         // now we scan the data and either add each point to the nearest group or create a new group
         // when we get too many groups, then we need to increase the threshold and rescan our current groups

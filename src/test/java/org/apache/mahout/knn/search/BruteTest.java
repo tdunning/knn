@@ -17,34 +17,26 @@
 
 package org.apache.mahout.knn.search;
 
-import org.apache.mahout.knn.WeightedVector;
+import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.apache.mahout.math.MatrixSlice;
-import org.apache.mahout.math.Vector;
+import org.junit.Before;
+import org.junit.BeforeClass;
 
-import java.util.List;
+public class BruteTest extends AbstractSearchTest {
+    private static Iterable<MatrixSlice> data;
 
-/**
- * Describes how to search a bunch of vectors.
- */
-public abstract class Searcher implements Iterable<MatrixSlice> {
-    public abstract void add(Vector v, int index);
-
-    public abstract int size();
-
-    public abstract int getSearchSize();
-
-    public abstract void setSearchSize(int size);
-
-    public abstract List<WeightedVector> search(Vector query, int limit);
-
-    public void addAll(Iterable<MatrixSlice> data) {
-        int i = size();
-        for (MatrixSlice slice : data) {
-            add(slice.vector(), i++);
-        }
+    @Before
+    public void fillData() {
+        data = randomData();
     }
 
-    public boolean remove(Vector v) {
-        throw new UnsupportedOperationException("Can't remove a vector from a " + this.getClass().getName());
+    @Override
+    public Iterable<MatrixSlice> testData() {
+        return data;
+    }
+
+    @Override
+    public UpdatableSearcher getSearch() {
+        return new Brute(new EuclideanDistanceMeasure());
     }
 }

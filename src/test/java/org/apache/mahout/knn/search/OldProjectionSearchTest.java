@@ -26,13 +26,11 @@ import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.function.DoubleFunction;
 import org.apache.mahout.math.function.Functions;
-import org.junit.Test;
 
 import java.util.Collections;
 import java.util.List;
 
 public class OldProjectionSearchTest { 
-    @Test
     public void testSearch() {
         final EuclideanDistanceMeasure distance = new EuclideanDistanceMeasure();
         for (int d =10; d < 11; d++) {

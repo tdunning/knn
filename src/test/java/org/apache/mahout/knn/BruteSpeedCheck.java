@@ -19,6 +19,7 @@ package org.apache.mahout.knn;
 
 import org.apache.mahout.knn.generate.MultiNormal;
 import org.apache.mahout.knn.generate.Sampler;
+import org.apache.mahout.knn.search.Brute;
 import org.apache.mahout.math.ConstantVector;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.Matrix;

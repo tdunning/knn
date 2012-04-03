@@ -1,4 +1,4 @@
-package org.apache.mahout.knn.LSH;
+package org.apache.mahout.knn.lsh;
 
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Lists;
@@ -21,13 +21,7 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.TreeSet;
 
-/**
- * Created by IntelliJ IDEA.
- * User: asanka
- * Date: 3/28/12
- * Time: 11:52 PM
- * To change this template use File | Settings | File Templates.
- */
+
 public class LocalitySensitiveHash extends Searcher implements Iterable<MatrixSlice> {
     private DistanceMeasure distance;
     private List<WeightedVector> trainingVectors;
@@ -66,8 +60,6 @@ public class LocalitySensitiveHash extends Searcher implements Iterable<MatrixSl
             v.setIndex(approximateDistance);
             displacementCount[approximateDistance] += 1;
         };
-        // System.out.println(trainingVectors.size());
-        // System.out.println(trainingVectors.get(1).getWeight());
 
         h1 = 0;
         h2 = 0;
