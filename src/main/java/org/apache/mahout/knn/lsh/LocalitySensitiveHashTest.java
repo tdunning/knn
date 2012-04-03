@@ -24,6 +24,7 @@ import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.apache.mahout.common.distance.WeightedEuclideanDistanceMeasure;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
+import org.apache.mahout.knn.WeightedVector;
 import org.junit.Test;
 
 import java.io.BufferedReader;
@@ -51,12 +52,12 @@ public class LocalitySensitiveHashTest {
         double t3 = 0;
         double tsim = 0.0;
         double sim;
-        int numberOfNeighbors = 100;
         int nearest = 100;
+        int numberOfNeighbors = 100;
         int sz ;
         int tsz = 0;
         //LocalitySensitiveHash lsh = new LocalitySensitiveHash(weightFunction, nVar);
-        LocalitySensitiveHash lsh = new LocalitySensitiveHash(distance, nVar);
+        LocalitySensitiveHash lsh = new LocalitySensitiveHash(distance, nVar, 2000);
         List<Vector> randomNeighbor = Lists.newArrayList();
         List<Vector> orgNeighbor = Lists.newArrayList();
         List<Vector> ref = Lists.newArrayList();
@@ -65,7 +66,7 @@ public class LocalitySensitiveHashTest {
         for (int i = 0; i < 40000; i++) {
             //Vector v = inputList.get(i);
             //v.assign(random);
-            lsh.add(inputList.get(i));
+            lsh.add(inputList.get(i), i);
             ref.add(inputList.get(i));
             orgNeighbor.add(inputList.get(i));
         }
@@ -76,16 +77,16 @@ public class LocalitySensitiveHashTest {
             final Vector v = inputList.get(i);
             //v.assign(random);
             long time1 = System.nanoTime();
-            List<LocalitySensitiveHash.IndexVector> rx = lsh.search(v, numberOfNeighbors);
+            List<WeightedVector> rx = lsh.search(v, numberOfNeighbors);
             
             List<Vector> lshNeighbor = Lists.newArrayList();
-            for (LocalitySensitiveHash.IndexVector observation : rx) {
-                lshNeighbor.add(ref.get(observation.getIndex()));
+            for (WeightedVector obs : rx) {
+                lshNeighbor.add(obs.getVector());
                 }
             long time2 = System.nanoTime();
             runningTime = runningTime + time2 - time1;
             
-            sz = lsh.countVectors(v);
+            sz = lsh.countVectors();
             
             Ordering<Vector> queryOrder = new Ordering<Vector>() {
                 @Override

@@ -1,19 +1,25 @@
 package org.apache.mahout.knn.LSH;
 
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Matrix;
+import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.function.Functions;
 import org.apache.mahout.math.list.IntArrayList;
+import org.apache.mahout.knn.WeightedVector;
+import org.apache.mahout.knn.search.Searcher;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.PriorityQueue;
+import java.util.TreeSet;
 
 /**
  * Created by IntelliJ IDEA.
@@ -22,21 +28,23 @@ import java.util.PriorityQueue;
  * Time: 11:52 PM
  * To change this template use File | Settings | File Templates.
  */
-public class LocalitySensitiveHash {
+public class LocalitySensitiveHash extends Searcher implements Iterable<MatrixSlice> {
     private DistanceMeasure distance;
-    private List<Vector> trainingVectors = Lists.newArrayList();
-    private IntArrayList intKeys = new IntArrayList();
-    private ArrayList<Integer> displacementList  = Lists.newArrayList();
+    private List<WeightedVector> trainingVectors;
+
+    // private ArrayList<Integer> displacementList  = Lists.newArrayList();
     private int[] displacementCount = new int[33];
-    private final int searchSize = 2000;
+    private int searchSize;
     int h1;
     int h2;
     // this matrix of 32 random vectors is used to compute the Locality Sensitive Hash
     // we compute the dot product with these vectors using a matrix multiplication and then use just
     // sign of each result as one bit in the hash
     private Matrix ranHash;
-    public LocalitySensitiveHash(DistanceMeasure distance, int nVar) {
+    public LocalitySensitiveHash(DistanceMeasure distance, int nVar, int searchSize) {
         this.distance = distance;
+        this.searchSize = searchSize;
+        trainingVectors = Lists.newArrayList();
         // for initializing vectors
         ranHash = new DenseMatrix(32, nVar);
         for (int j=0; j < 32; j++){
@@ -45,19 +53,21 @@ public class LocalitySensitiveHash {
             }
         }
     }
-    public List<IndexVector> search(Vector testingObs, int numberOfNeighbors) {
-        PriorityQueue<IndexVector> pq = new PriorityQueue<IndexVector>(10, Ordering.natural().reverse());
+    public List<WeightedVector> search(Vector testingObs, int numberOfNeighbors) {
 
         int query = computeHash(testingObs);
         for (int i=0; i<=32; i++) {
         	displacementCount[i]=0;
         }
-        displacementList.clear();
-        for (int i = 0; i < intKeys.size(); i++) {
-            int approximateDistance = Integer.bitCount(query ^ intKeys.get(i));
-            displacementList.add(approximateDistance);
+        // displacementList.clear();
+        for (WeightedVector v : trainingVectors) {
+        	int training = (int)v.getWeight();
+            int approximateDistance = Integer.bitCount(query ^ training);
+            v.setIndex(approximateDistance);
             displacementCount[approximateDistance] += 1;
         };
+        // System.out.println(trainingVectors.size());
+        // System.out.println(trainingVectors.get(1).getWeight());
 
         h1 = 0;
         h2 = 0;
@@ -68,38 +78,47 @@ public class LocalitySensitiveHash {
         		break;
         	}
         }
-        for (int i = 0; i < displacementList.size(); i++) {
-            // int approximateDistance = Integer.bitCount(query ^ intKeys.get(i));
-            if (displacementList.get(i) <= h2) {
-                double dist = distance.distance(testingObs, trainingVectors.get(i));
-                pq.add(new IndexVector(trainingVectors.get(i), i, dist));
-                while (pq.size() > numberOfNeighbors) {
-                    pq.poll();
-                }
+        
+        List<WeightedVector> top = Lists.newArrayList();
+
+        for (WeightedVector v : trainingVectors) {
+            if (v.getIndex() <= h2) {
+                double dist = distance.distance(testingObs, v.getVector());
+                top.add(new WeightedVector(v.getVector().clone(), dist, -1));
             }
         }
-        List<IndexVector> r = Lists.newArrayList(pq);
-        Collections.sort(r, Ordering.natural().reverse());
-        return r;
+
+        // Collections.sort(top, byQueryDistance(testingObs));
+        Collections.sort(top);
+        return top.subList(0, numberOfNeighbors);
     }
     
-    public int countVectors(Vector testingObs) {
-        int query = computeHash(testingObs);
+    private Ordering<Vector> byQueryDistance(final Vector query) {
+        return new Ordering<Vector>() {
+            @Override
+            public int compare(Vector v1, Vector v2) {
+                int r = Double.compare(distance.distance(query, v1), distance.distance(query, v2));
+                return r != 0 ? r : v1.hashCode() - v2.hashCode();
+            }
+        };
+    }
+
+    
+    public int countVectors() {
         int k = 0;
-        for (int i = 0; i < intKeys.size(); i++) {
-            int approximateDistance = Integer.bitCount(query ^ intKeys.get(i));
-            if (approximateDistance <= h2) {
+        for (WeightedVector v : trainingVectors) {
+            if (v.getIndex() <= h2) {
                 k++;
             }
         }
         return k;
     }
+    
+    public void add(Vector v, int index) {
+    	double weight = computeHash(v);
+        trainingVectors.add(new WeightedVector(v,weight,index));
+        }
 
-    public void add(Vector v) {
-        trainingVectors.add(v);
-        intKeys.add(computeHash(v));
-
-    }
 
     private int computeHash(Vector v) {
         int r = 0;
@@ -111,33 +130,34 @@ public class LocalitySensitiveHash {
         return r;
     }
     
-    public static class IndexVector implements Comparable<IndexVector> {
-        private double distance;
-        private int index;
-        private Vector v;
+    public int size() {
+        return trainingVectors.size();
+    }
+    
+    @Override
+    public int getSearchSize() {
+        return searchSize;
+    }
 
-        public IndexVector(Vector v, int index, double weight) {
-            this.v = v;
-            this.index = index;
-            this.distance = weight;
-        }
+    @Override
+    public void setSearchSize(int size) {
+        searchSize = size;
+    }
 
-        public int getIndex() {
-            return index;
-        }
+    @Override
+    public Iterator<MatrixSlice> iterator() {
+        return new AbstractIterator<MatrixSlice>() {
+            int index = 0;
+            Iterator<WeightedVector> data = trainingVectors.iterator();
 
-        public Vector getV() {
-            return v;
-        }
-
-        @Override
-        public int compareTo(IndexVector o) {
-            int r = Double.compare(distance, o.distance);
-            if (r == 0) {
-                return hashCode() - o.hashCode();
-            } else {
-                return r;
+            @Override
+            protected MatrixSlice computeNext() {
+                if (!data.hasNext()) {
+                    return endOfData();
+                } else {
+                    return new MatrixSlice(data.next(), index++);
+                }
             }
-        }
+        };
     }
 }
