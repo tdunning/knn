@@ -34,6 +34,7 @@ import java.util.Random;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public abstract class AbstractSearchTest {
     protected static Matrix randomData() {
@@ -51,7 +52,7 @@ public abstract class AbstractSearchTest {
 
     @Test
     public void testExactMatch() {
-        List<Vector> queries = subset(testData(), 100);
+        List<WeightedVector> queries = subset(testData(), 100);
         Searcher s = getSearch();
         s.addAll(testData());
         assertEquals(Iterables.size(testData()), s.size());
@@ -66,7 +67,7 @@ public abstract class AbstractSearchTest {
 
     @Test
     public void testNearMatch() {
-        List<Vector> queries = subset(testData(), 100);
+        List<WeightedVector> queries = subset(testData(), 100);
         Searcher s = getSearch();
         s.addAll(testData());
 
@@ -103,18 +104,61 @@ public abstract class AbstractSearchTest {
         }
     }
 
-    public List<Vector> subset(Iterable<MatrixSlice> data, int n) {
-        List<Vector> r = Lists.newArrayList();
+    @Test
+    public void testRemoval() {
+        Searcher s = getSearch();
+        s.addAll(testData());
+        if (s instanceof UpdatableSearcher) {
+            List<WeightedVector> x = subset(s, 2);
+            int size0 = s.size();
+
+            List<WeightedVector> r0 = s.search(x.get(0), 2);
+
+            s.remove(x.get(0).getVector());
+            assertEquals(size0 - 1, s.size());
+
+            List<WeightedVector> r = s.search(x.get(0), 1);
+            assertTrue("Vector should be gone", r.get(0).getWeight() > 0);
+            assertEquals("Previous second neighbor should be first", 0, r.get(0).minus(r0.get(1)).norm(1), 1e-8);
+            
+            s.remove(x.get(1).getVector());
+            assertEquals(size0 - 2, s.size());
+
+            r = s.search(x.get(1), 1);
+            assertTrue("Vector should be gone", r.get(0).getWeight() > 0);
+        } else {
+            try {
+                List<WeightedVector> x = subset(s, 2);
+                s.remove(x.get(0));
+                fail("Shouldn't be able to delete from " + s.getClass().getName());
+            } catch (UnsupportedOperationException e) {
+                // good enough that UOE is thrown
+            }
+        }
+    }
+
+    public List<WeightedVector> subset(Iterable<MatrixSlice> data, int n) {
+        List<WeightedVector> r = Lists.newArrayList();
         Random gen = RandomUtils.getRandom();
 
+        int i = 0;
         for (MatrixSlice row : data) {
             if (r.size() < n) {
-                r.add(row.vector());
+                if (row.vector() instanceof WeightedVector) {
+                    r.add((WeightedVector) row.vector());
+                } else {
+                    r.add(new WeightedVector(row.vector(), 0, i++));
+                }
             } else {
                 int k = gen.nextInt(row.index());
                 if (k < r.size()) {
-                    r.set(k, row.vector());
+                    if (row.vector() instanceof WeightedVector) {
+                        r.set(k, (WeightedVector) row.vector());
+                    } else {
+                        r.set(k, new WeightedVector(row.vector(), 0, i++));
+                    }
                 }
+                i++;
             }
         }
 
