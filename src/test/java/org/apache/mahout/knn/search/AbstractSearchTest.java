@@ -48,12 +48,12 @@ public abstract class AbstractSearchTest {
 
     public abstract Iterable<MatrixSlice> testData();
 
-    public abstract Searcher getSearch();
+    public abstract Searcher getSearch(int n);
 
     @Test
     public void testExactMatch() {
         List<WeightedVector> queries = subset(testData(), 100);
-        Searcher s = getSearch();
+        Searcher s = getSearch(20);
         s.addAll(testData());
         assertEquals(Iterables.size(testData()), s.size());
         
@@ -68,7 +68,7 @@ public abstract class AbstractSearchTest {
     @Test
     public void testNearMatch() {
         List<WeightedVector> queries = subset(testData(), 100);
-        Searcher s = getSearch();
+        Searcher s = getSearch(20);
         s.addAll(testData());
 
         MultiNormal noise = new MultiNormal(0.01, new DenseVector(20));
@@ -90,7 +90,7 @@ public abstract class AbstractSearchTest {
             queries.viewRow(i).assign(gen.sample());
         }
 
-        Searcher s = getSearch();
+        Searcher s = getSearch(20);
         s.setSearchSize(200);
         s.addAll(testData());
 
@@ -105,8 +105,25 @@ public abstract class AbstractSearchTest {
     }
 
     @Test
+    public void testSmallSearch() {
+        Matrix m = new DenseMatrix(8, 3);
+        for (int i = 0; i < 8; i++) {
+            m.viewRow(i).assign(new double[]{0.125 * (i & 4), i & 2, i & 1});
+        }
+
+        Searcher s = getSearch(3);
+        s.addAll(m);
+        for (MatrixSlice row : m) {
+            final List<WeightedVector> r = s.search(row.vector(), 3);
+            assertEquals(0, r.get(0).getWeight(), 1e-8);
+            assertEquals(0, r.get(1).getWeight(), 0.5);
+            assertEquals(0, r.get(2).getWeight(), 1);
+        }
+    }
+
+    @Test
     public void testRemoval() {
-        Searcher s = getSearch();
+        Searcher s = getSearch(20);
         s.addAll(testData());
         if (s instanceof UpdatableSearcher) {
             List<WeightedVector> x = subset(s, 2);

@@ -43,7 +43,7 @@ public class StreamingKmeans {
         this.distance = distance;
 
         // cluster the data
-        UpdatableSearcher centroids = clusterInternal(data, maxClusters);
+        UpdatableSearcher centroids = clusterInternal(data, maxClusters, 1);
 
         // how make a clean set of empty centroids to get ready for final pass through the data
         int width = data.iterator().next().vector().size();
@@ -84,13 +84,14 @@ public class StreamingKmeans {
         return distanceCutoff;
     }
 
-    private UpdatableSearcher clusterInternal(Iterable<MatrixSlice> data, int maxClusters) {
+    private UpdatableSearcher clusterInternal(Iterable<MatrixSlice> data, int maxClusters, int depth) {
         int width = data.iterator().next().vector().size();
         UpdatableSearcher centroids = new ProjectionSearch(width, distance, 4, 10);
 
         // now we scan the data and either add each point to the nearest group or create a new group
         // when we get too many groups, then we need to increase the threshold and rescan our current groups
         Random rand = RandomUtils.getRandom();
+        int n = 0;
         for (MatrixSlice row : data) {
             if (centroids.size() == 0) {
                 // add first centroid on first vector
@@ -111,13 +112,20 @@ public class StreamingKmeans {
                 }
             }
 
-            if (centroids.size() > maxClusters) {
-                distanceCutoff *= 1.5;
+            if (depth < 2 && centroids.size() > maxClusters) {
+                maxClusters = (int) Math.max(maxClusters, 10 * Math.log(n));
                 // TODO does shuffling help?
                 List<MatrixSlice> shuffled = Lists.newArrayList(centroids);
                 Collections.shuffle(shuffled);
-                centroids = clusterInternal(shuffled, maxClusters);
+                centroids = clusterInternal(shuffled, maxClusters, depth + 1);
+                // for distributions with sharp scale effects, the distanceCutoff can grow to
+                // excessive size leading sub-clustering to collapse the centroids set too much.
+                // This test prevents that collapse from getting too severe.
+                if (centroids.size() > 0.1 * maxClusters) {
+                    distanceCutoff *= 1.5;
+                }
             }
+            n++;
         }
         return centroids;
     }

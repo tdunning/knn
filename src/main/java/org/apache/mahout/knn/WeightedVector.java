@@ -64,7 +64,7 @@ public class WeightedVector extends DelegatingVector implements Comparable<Weigh
             return 0;
         }
         int r = Double.compare(weight, other.getWeight());
-        if (r == 0) {
+        if (r == 0 || Math.abs(weight - other.getWeight()) < 1e-8) {
             double diff = this.minus(other).norm(1);
             if (diff < 1e-12) {
                 return 0;

@@ -18,9 +18,16 @@
 package org.apache.mahout.knn.search;
 
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
+import org.apache.mahout.knn.WeightedVector;
+import org.apache.mahout.math.DenseMatrix;
+import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.MatrixSlice;
 import org.junit.Before;
-import org.junit.BeforeClass;
+import org.junit.Test;
+
+import java.util.List;
+
+import static org.junit.Assert.assertEquals;
 
 public class BruteTest extends AbstractSearchTest {
     private static Iterable<MatrixSlice> data;
@@ -36,7 +43,25 @@ public class BruteTest extends AbstractSearchTest {
     }
 
     @Override
-    public UpdatableSearcher getSearch() {
+    public UpdatableSearcher getSearch(int n) {
         return new Brute(new EuclideanDistanceMeasure());
+    }
+
+    @Test
+    public void testMatrixSearch() {
+        Matrix m = new DenseMatrix(8, 3);
+        for (int i = 0; i < 8; i++) {
+            m.viewRow(i).assign(new double[]{0.125 * (i & 4), i & 2, i & 1});
+        }
+
+        Brute s = (Brute) getSearch(3);
+        s.addAll(m);
+
+        final List<List<WeightedVector>> searchResults = s.search(m, 3);
+        for (List<WeightedVector> r : searchResults) {
+            assertEquals(0, r.get(0).getWeight(), 1e-8);
+            assertEquals(0.5, r.get(1).getWeight(), 1e-8);
+            assertEquals(1, r.get(2).getWeight(), 1e-8);
+        }
     }
 }

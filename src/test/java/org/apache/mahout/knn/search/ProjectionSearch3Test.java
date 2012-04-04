@@ -24,13 +24,10 @@ import org.junit.BeforeClass;
 
 public class ProjectionSearch3Test extends AbstractSearchTest {
     private static Matrix data;
-    private static ProjectionSearch3 searcher;
 
     @BeforeClass
     public static void setUp() {
         data = randomData();
-
-        searcher = new ProjectionSearch3(20, new EuclideanDistanceMeasure(), 4, 20);
     }
 
     @Override
@@ -39,7 +36,7 @@ public class ProjectionSearch3Test extends AbstractSearchTest {
     }
 
     @Override
-    public Searcher getSearch() {
-        return searcher;
+    public Searcher getSearch(int n) {
+        return new ProjectionSearch3(n, new EuclideanDistanceMeasure(), 4, 20);
     }
 }

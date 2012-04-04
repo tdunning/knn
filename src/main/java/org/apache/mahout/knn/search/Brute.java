@@ -26,8 +26,6 @@ import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.Vector;
-import org.apache.mahout.math.function.DoubleDoubleFunction;
-import org.apache.mahout.math.function.Functions;
 
 import java.util.Collections;
 import java.util.Iterator;
@@ -150,8 +148,7 @@ public class Brute extends UpdatableSearcher {
 
         List<List<WeightedVector>> r = Lists.newArrayList();
         for (MatrixSlice row : query) {
-            q.add(new PriorityQueue<WeightedVector>());
-            r.add(Lists.reverse(Lists.newArrayList(searchInternal(row.vector(), reference, n, q.get(row.index())))));
+            r.add(search(row.vector(), n));
         }
         return r;
     }

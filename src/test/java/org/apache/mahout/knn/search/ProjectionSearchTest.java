@@ -26,7 +26,6 @@ import org.junit.BeforeClass;
 
 public class ProjectionSearchTest extends AbstractSearchTest {
     private static Matrix data;
-    private static ProjectionSearch searcher;
 
     @BeforeClass
     public static void setUp() {
@@ -36,7 +35,6 @@ public class ProjectionSearchTest extends AbstractSearchTest {
             slice.vector().assign(gen.sample());
         }
 
-        searcher = new ProjectionSearch(20, new EuclideanDistanceMeasure(), 4, 20);
     }
 
     @Override
@@ -45,7 +43,7 @@ public class ProjectionSearchTest extends AbstractSearchTest {
     }
 
     @Override
-    public UpdatableSearcher getSearch() {
-        return searcher;
+    public UpdatableSearcher getSearch(int n) {
+        return new ProjectionSearch(n, new EuclideanDistanceMeasure(), 4, 20);
     }
 }

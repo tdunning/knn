@@ -18,10 +18,10 @@
 package org.apache.mahout.knn.means;
 
 import com.google.common.collect.Lists;
-import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
+import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.knn.generate.MultiNormal;
-import org.apache.mahout.knn.search.UpdatableSearcher;
+import org.apache.mahout.knn.search.Searcher;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.MatrixSlice;
@@ -29,7 +29,8 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.List;
-import java.util.Random;
+
+import static org.junit.Assert.assertTrue;
 
 
 public class StreamingKmeansTest {
@@ -44,23 +45,30 @@ public class StreamingKmeansTest {
 
     @Test
     public void testClustering1() {
-        Matrix data = new DenseMatrix(800, 3);
+        // construct data samplers centered on the corners of a unit cube
         Matrix mean = new DenseMatrix(8, 3);
         List<MultiNormal> rowSamplers = Lists.newArrayList();
         for (int i = 0; i < 8; i++) {
             mean.viewRow(i).assign(new double[]{0.25 * (i & 4), 0.5 * (i & 2), i & 1});
-            MultiNormal gen = new MultiNormal(0.1, mean.viewRow(i));
+            MultiNormal gen = new MultiNormal(0.01, mean.viewRow(i));
             rowSamplers.add(gen);
         }
 
-
-        Random rowSelector = RandomUtils.getRandom();
-        for (MatrixSlice slice : data) {
-            slice.vector().assign(rowSamplers.get(rowSelector.nextInt(8)).sample());
+        // sample a bunch of data points
+        long t0 = System.currentTimeMillis();
+        Matrix data = new DenseMatrix(10000, 3);
+        for (MatrixSlice row : data) {
+            row.vector().assign(rowSamplers.get(row.index() % 8).sample());
         }
-
-
-        UpdatableSearcher r = new StreamingKmeans().cluster(new EuclideanDistanceMeasure(), data, 30);
-
+        long t1 = System.currentTimeMillis();
+        // cluster the data
+        Searcher r = new StreamingKmeans().cluster(new EuclideanDistanceMeasure(), data, 1000);
+        long t2 = System.currentTimeMillis();
+        // and verify that each corner of the cube has a centroid very nearby
+        for (MatrixSlice row : mean) {
+            WeightedVector v = r.search(row.vector(), 1).get(0);
+            assertTrue(v.getWeight() < 0.05);
+        }
+        System.out.printf("%.2f s for data generation\n%.2f for clustering\n", (t1 - t0) / 1000.0, (t2 - t1) / 1000.0);
     }
 }

@@ -17,24 +17,22 @@
 
 package org.apache.mahout.knn;
 
+import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
-import org.junit.Assert;
 import org.junit.Test;
 
-import java.io.IOException;
-import java.util.List;
+import static org.junit.Assert.assertEquals;
 
-public class SampleSequenceFileWriterTest {
+
+public class WeightedVectorTest {
     @Test
-    public void testWrite() throws IOException {
-        List<Vector> data = SampleSequenceFileWriter.writeTestFile("foo", 30, 10000, true);
-        List<Vector> actual = SampleSequenceFileWriter.readTestFile("foo");
-        Assert.assertEquals(data.size(), actual.size());
-        Assert.assertTrue(data.size() > 0);
-        int i = 0;
-        for (Vector vector : data) {
-            Assert.assertEquals(0, vector.minus(actual.get(i)).norm(1), 1e-8);
-            i++;
-        }
+    public void testLength() {
+        Vector v = new DenseVector(new double[]{0.9921337470551008, 1.0031004325833064, 0.9963963182745947});
+        Centroid c = new Centroid(3, new DenseVector(v), 2);
+        assertEquals(c.getVector().getLengthSquared(), c.getLengthSquared(), 1e-17);
+        // previously, this wouldn't clear the cached squared length value correctly which would cause bad distances
+        c.set(0, -1);
+        System.out.printf("c = %.9f\nv = %.9f\n", c.getLengthSquared(), c.getVector().getLengthSquared());
+        assertEquals(c.getVector().getLengthSquared(), c.getLengthSquared(), 1e-17);
     }
 }

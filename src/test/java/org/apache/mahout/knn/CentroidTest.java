@@ -43,7 +43,8 @@ public class CentroidTest {
         x1.update(c);
 
         // check for correct value
-        assertEquals(0, x1.getVector().minus(a.plus(b).plus(c).assign(Functions.div(3))).norm(1), 1e-8);
+        final Vector mean = a.plus(b).plus(c).assign(Functions.div(3));
+        assertEquals(0, x1.getVector().minus(mean).norm(1), 1e-8);
         assertEquals(3, x1.getWeight(), 0);
         
         assertEquals(0, x2.minus(a.plus(b).divide(2)).norm(1), 1e-8);
