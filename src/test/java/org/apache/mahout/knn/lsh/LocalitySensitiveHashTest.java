@@ -33,7 +33,7 @@ import java.util.Collections;
 import java.util.List;
 
 public class LocalitySensitiveHashTest {
-    @Test
+//    @Test
     public void testSearch() throws Exception {
         int nVar = 10;
         final DistanceMeasure distance = new EuclideanDistanceMeasure();
