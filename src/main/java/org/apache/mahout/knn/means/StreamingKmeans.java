@@ -25,6 +25,7 @@ import org.apache.mahout.knn.search.Brute;
 import org.apache.mahout.knn.Centroid;
 import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.knn.search.ProjectionSearch;
+import org.apache.mahout.knn.search.Searcher;
 import org.apache.mahout.knn.search.UpdatableSearcher;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.MatrixSlice;
@@ -37,32 +38,19 @@ public class StreamingKmeans {
     private DistanceMeasure distance;
     private double distanceCutoff;
 
-    public UpdatableSearcher cluster(DistanceMeasure distance, Iterable<MatrixSlice> data, int maxClusters) {
+    public Searcher cluster(DistanceMeasure distance, Iterable<MatrixSlice> data, int maxClusters) {
         // initialize scale
         distanceCutoff = estimateCutoff(data);
         this.distance = distance;
 
         // cluster the data
-        UpdatableSearcher centroids = clusterInternal(data, maxClusters, 1);
-
-        // how make a clean set of empty centroids to get ready for final pass through the data
-        int width = data.iterator().next().vector().size();
-        UpdatableSearcher r = new ProjectionSearch(width, distance, 4, 10);
-        for (MatrixSlice centroid : centroids) {
-            Centroid c = new Centroid(centroid.index(), new DenseVector(centroid.vector()));
-            c.setWeight(0);
-            r.add(c, c.getIndex());
-        }
-
-        // then make a final pass over the data
+        return clusterInternal(data, maxClusters, 1);
+    }
+    
+    public List<Integer> assign(Searcher centroids, Iterable<MatrixSlice> data) {
+        List<Integer> r = Lists.newArrayList();
         for (MatrixSlice row : data) {
-            WeightedVector closest = r.search(row.vector(), 1).get(0);
-
-            // merge against existing
-            Centroid c = (Centroid) closest.getVector();
-            r.remove(c);
-            c.update(row.vector());
-            r.add(c, c.getIndex());
+            r.add(centroids.search(row.vector(), 1).get(0).getIndex());
         }
         return r;
     }

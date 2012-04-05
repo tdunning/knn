@@ -50,16 +50,15 @@ public class StreamingKmeansTest {
         List<MultiNormal> rowSamplers = Lists.newArrayList();
         for (int i = 0; i < 8; i++) {
             mean.viewRow(i).assign(new double[]{0.25 * (i & 4), 0.5 * (i & 2), i & 1});
-            MultiNormal gen = new MultiNormal(0.01, mean.viewRow(i));
-            rowSamplers.add(gen);
+            rowSamplers.add(new MultiNormal(0.01, mean.viewRow(i)));
         }
 
         // sample a bunch of data points
-        long t0 = System.currentTimeMillis();
         Matrix data = new DenseMatrix(10000, 3);
         for (MatrixSlice row : data) {
             row.vector().assign(rowSamplers.get(row.index() % 8).sample());
         }
+        long t0 = System.currentTimeMillis();
         long t1 = System.currentTimeMillis();
         // cluster the data
         Searcher r = new StreamingKmeans().cluster(new EuclideanDistanceMeasure(), data, 1000);
@@ -69,6 +68,7 @@ public class StreamingKmeansTest {
             WeightedVector v = r.search(row.vector(), 1).get(0);
             assertTrue(v.getWeight() < 0.05);
         }
-        System.out.printf("%.2f s for data generation\n%.2f for clustering\n", (t1 - t0) / 1000.0, (t2 - t1) / 1000.0);
+        System.out.printf("%.2f s for data generation\n%.2f for clustering\n%.1f us per row\n",
+                (t1 - t0) / 1000.0, (t2 - t1) / 1000.0, (t2 - t1) / 1000.0 / data.rowSize() * 1e6);
     }
 }
