@@ -13,10 +13,10 @@ import java.util.Random;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.common.distance.SquaredEuclideanDistanceMeasure;
-import org.apache.mahout.knn.Brute;
 import org.apache.mahout.knn.Centroid;
 import org.apache.mahout.knn.CustomerVector;
 import org.apache.mahout.knn.WeightedVector;
+import org.apache.mahout.knn.search.Brute;
 import org.apache.mahout.knn.search.ProjectionSearch;
 import org.apache.mahout.knn.search.UpdatableSearcher;
 import org.apache.mahout.math.DenseMatrix;
@@ -59,7 +59,7 @@ public class KMeans {
  		
 	}
 	
-	private final void readInputFile(String fileName) throws Exception{
+	private void readInputFile(String fileName) throws Exception{
     	FileReader fileReader=new FileReader(new File(fileName));
     	BufferedReader bufferedReader=new BufferedReader(fileReader);
     	String line=null;
@@ -164,9 +164,9 @@ public class KMeans {
         // first we need to have a reasonable value for what a "small" distance is
         // so we find the shortest distance between any of the first hundred data points
         distanceCutoff = Double.POSITIVE_INFINITY;
-        for (List<Brute.Result> distances : new Brute(top).search(top, 2)) {
+        for (List<WeightedVector> distances : new Brute(top).search(top, 2)) {
             if (distances.size() > 1) {
-                final double x = distances.get(1).getScore();
+                final double x = distances.get(1).getWeight();
                 if (x != 0 && x < distanceCutoff) {
                     distanceCutoff = x;
                 }
