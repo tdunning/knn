@@ -39,12 +39,13 @@ public class Centroid extends WeightedVector {
         super(initialValue, weight, key);
     }
 
-    public void update(final Centroid other) {
-        update(other.delegate, other.getWeight());
-    }
-
     public void update(Vector v) {
-        update(v, 1);
+        if (v instanceof Centroid) {
+            Centroid c = (Centroid) v;
+            update(c.delegate, c.getWeight());
+        } else {
+            update(v, 1);
+        }
     }
 
     public void update(Vector v, final double w) {
