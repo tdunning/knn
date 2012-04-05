@@ -17,6 +17,7 @@
 
 package org.apache.mahout.knn;
 
+import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.function.DoubleDoubleFunction;
 
@@ -25,8 +26,8 @@ import org.apache.mahout.math.function.DoubleDoubleFunction;
  * to make it easy to use vector search classes and such.
  */
 public class Centroid extends WeightedVector {
-    public Centroid(Centroid original) {
-        super(original.size(), original.getWeight(), original.getKey());
+    public Centroid(WeightedVector original) {
+        super(original.size(), original.getWeight(), original.getIndex());
         delegate = original.like();
         delegate.assign(original);
     }
@@ -37,6 +38,14 @@ public class Centroid extends WeightedVector {
 
     public Centroid(int key, Vector initialValue, double weight) {
         super(initialValue, weight, key);
+    }
+
+    public static Centroid create(int key, Vector initialValue) {
+        if (initialValue instanceof WeightedVector) {
+            return new Centroid(key, new DenseVector(initialValue), ((WeightedVector) initialValue).getWeight());
+        } else {
+            return new Centroid(key, new DenseVector(initialValue), 1);
+        }
     }
 
     public void update(Vector v) {

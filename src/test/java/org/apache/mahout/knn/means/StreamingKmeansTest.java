@@ -30,6 +30,7 @@ import org.junit.Test;
 
 import java.util.List;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 
@@ -59,16 +60,31 @@ public class StreamingKmeansTest {
             row.vector().assign(rowSamplers.get(row.index() % 8).sample());
         }
         long t0 = System.currentTimeMillis();
-        long t1 = System.currentTimeMillis();
+
         // cluster the data
         Searcher r = new StreamingKmeans().cluster(new EuclideanDistanceMeasure(), data, 1000);
-        long t2 = System.currentTimeMillis();
+        long t1 = System.currentTimeMillis();
+
+        assertEquals("Total weight not preserved", totalWeight(data), totalWeight(r), 1e-9);
+
         // and verify that each corner of the cube has a centroid very nearby
         for (MatrixSlice row : mean) {
             WeightedVector v = r.search(row.vector(), 1).get(0);
             assertTrue(v.getWeight() < 0.05);
         }
-        System.out.printf("%.2f s for data generation\n%.2f for clustering\n%.1f us per row\n",
-                (t1 - t0) / 1000.0, (t2 - t1) / 1000.0, (t2 - t1) / 1000.0 / data.rowSize() * 1e6);
+        System.out.printf("%.2f for clustering\n%.1f us per row\n",
+                (t1 - t0) / 1000.0, (t1 - t0) / 1000.0 / data.rowSize() * 1e6);
+    }
+
+    private double totalWeight(Iterable<MatrixSlice> data) {
+        double sum = 0;
+        for (MatrixSlice row : data) {
+            if (row.vector() instanceof WeightedVector) {
+                sum += ((WeightedVector) row.vector()).getWeight();
+            } else {
+                sum++;
+            }
+        }
+        return sum;
     }
 }

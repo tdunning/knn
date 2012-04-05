@@ -83,14 +83,14 @@ public class StreamingKmeans {
         for (MatrixSlice row : data) {
             if (centroids.size() == 0) {
                 // add first centroid on first vector
-                centroids.add(new Centroid(centroids.size(), row.vector()), 0);
+                centroids.add(Centroid.create(centroids.size(), row.vector()), centroids.size());
             } else {
                 // estimate distance d to closest centroid
                 WeightedVector closest = centroids.search(row.vector(), 1).get(0);
 
                 if (rand.nextDouble() < closest.getWeight() / distanceCutoff) {
                     // add new centroid, note that the vector is copied because we may mutate it later
-                    centroids.add(new Centroid(centroids.size(), new DenseVector(row.vector())), centroids.size());
+                    centroids.add(Centroid.create(centroids.size(), row.vector()), centroids.size());
                 } else {
                     // merge against existing
                     Centroid c = (Centroid) closest.getVector();
