@@ -21,7 +21,13 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.TreeSet;
 
-
+/**
+ * Created by IntelliJ IDEA.
+ * User: asanka
+ * Date: 3/28/12
+ * Time: 11:52 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public class LocalitySensitiveHash extends Searcher implements Iterable<MatrixSlice> {
     private DistanceMeasure distance;
     private List<WeightedVector> trainingVectors;
@@ -60,6 +66,8 @@ public class LocalitySensitiveHash extends Searcher implements Iterable<MatrixSl
             v.setIndex(approximateDistance);
             displacementCount[approximateDistance] += 1;
         };
+        // System.out.println(trainingVectors.size());
+        // System.out.println(trainingVectors.get(1).getWeight());
 
         h1 = 0;
         h2 = 0;
@@ -75,7 +83,7 @@ public class LocalitySensitiveHash extends Searcher implements Iterable<MatrixSl
 
         for (WeightedVector v : trainingVectors) {
             if (v.getIndex() <= h2) {
-                double dist = distance.distance(testingObs, v.getVector());
+                double dist = distance.distance(testingObs, v.getVector().viewPart(1,v.getVector().size()-1));
                 top.add(new WeightedVector(v.getVector().clone(), dist, -1));
             }
         }
@@ -85,15 +93,6 @@ public class LocalitySensitiveHash extends Searcher implements Iterable<MatrixSl
         return top.subList(0, numberOfNeighbors);
     }
     
-    private Ordering<Vector> byQueryDistance(final Vector query) {
-        return new Ordering<Vector>() {
-            @Override
-            public int compare(Vector v1, Vector v2) {
-                int r = Double.compare(distance.distance(query, v1), distance.distance(query, v2));
-                return r != 0 ? r : v1.hashCode() - v2.hashCode();
-            }
-        };
-    }
 
     
     public int countVectors() {
@@ -107,7 +106,7 @@ public class LocalitySensitiveHash extends Searcher implements Iterable<MatrixSl
     }
     
     public void add(Vector v, int index) {
-    	double weight = computeHash(v);
+    	double weight = computeHash(v.viewPart(1, v.size()-1));
         trainingVectors.add(new WeightedVector(v,weight,index));
         }
 
