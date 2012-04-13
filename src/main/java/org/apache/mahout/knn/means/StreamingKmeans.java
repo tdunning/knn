@@ -55,12 +55,12 @@ public class StreamingKmeans {
         return r;
     }
 
-    public double estimateCutoff(Iterable<MatrixSlice> data) {
+    public static double estimateCutoff(Iterable<MatrixSlice> data) {
         Iterable<MatrixSlice> top = Iterables.limit(data, 100);
 
         // first we need to have a reasonable value for what a "small" distance is
         // so we find the shortest distance between any of the first hundred data points
-        distanceCutoff = Double.POSITIVE_INFINITY;
+        double distanceCutoff = Double.POSITIVE_INFINITY;
         for (List<WeightedVector> distances : new Brute(top).search(top, 2)) {
             if (distances.size() > 1) {
                 final double x = distances.get(1).getWeight();
