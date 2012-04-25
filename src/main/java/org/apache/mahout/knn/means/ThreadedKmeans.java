@@ -35,7 +35,7 @@ import java.util.concurrent.Future;
 
 public class ThreadedKmeans {
 
-    public Searcher cluster(final DistanceMeasure distance, List<Iterable<MatrixSlice>> data, final int maxClusters, final int threads) throws InterruptedException, ExecutionException {
+    public Searcher cluster(final DistanceMeasure distance, List<Iterable<MatrixSlice>> data, final int maxClusters, final int threads, final StreamingKmeans.CentroidFactory centroidFactory) throws InterruptedException, ExecutionException {
         // initialize scale
         int i = 0;
         final int width = data.get(0).iterator().next().vector().size();
@@ -50,9 +50,8 @@ public class ThreadedKmeans {
         for (final Iterable<MatrixSlice> split : data) {
             tasks.add(new Callable<Searcher>() {
                 @Override
-                public Searcher call() throws Exception {
-                    final Searcher r = new StreamingKmeans().cluster(distance, split, maxClusters);
-                    return r;
+                public Searcher call() {
+                    return new StreamingKmeans().cluster(split, maxClusters, centroidFactory);
                 }
             });
         }
@@ -64,7 +63,7 @@ public class ThreadedKmeans {
             Iterables.addAll(raw, result.get());
         }
 
-        return new StreamingKmeans().cluster(distance, raw, data.size() * maxClusters);
+        return new StreamingKmeans().cluster(raw, data.size() * maxClusters, centroidFactory);
     }
 
     public static List<Iterable<MatrixSlice>> split(Iterable<MatrixSlice> data, int threads) {

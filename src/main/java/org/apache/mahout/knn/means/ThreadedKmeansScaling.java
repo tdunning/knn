@@ -23,10 +23,13 @@ import com.google.common.collect.Sets;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.apache.mahout.knn.WeightedVector;
+import org.apache.mahout.knn.generate.ChineseRestaurant;
 import org.apache.mahout.knn.generate.MultiNormal;
 import org.apache.mahout.knn.generate.Sampler;
 import org.apache.mahout.knn.search.Brute;
+import org.apache.mahout.knn.search.ProjectionSearch;
 import org.apache.mahout.knn.search.Searcher;
+import org.apache.mahout.knn.search.UpdatableSearcher;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Matrix;
@@ -114,23 +117,120 @@ public class ThreadedKmeansScaling {
 
     public static void testCluster(int rows) throws ExecutionException, InterruptedException {
         Matrix data = new DenseMatrix(rows, 30);
-        Sampler<Vector> gen = new MultiNormal(30);
+        PointSampler gen = new PointSampler(1);
         for (MatrixSlice row : data) {
+            final Vector sample = gen.sample();
+            row.vector().assign(sample);
+        }
+        System.out.printf("%d\n", gen.size());
+
+        Matrix test = new DenseMatrix(1000, 30);
+        for (MatrixSlice row : test) {
             row.vector().assign(gen.sample());
         }
 
+        System.out.printf("%d\n", gen.size());
 
-        Searcher y = new StreamingKmeans().cluster(new EuclideanDistanceMeasure(), data, 200);
-        long t2 = System.currentTimeMillis();
-        y = new StreamingKmeans().cluster(new EuclideanDistanceMeasure(), data, 200);
-        long t3 = System.currentTimeMillis();
-        for (int threads : new int[]{1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16}) {
-            List<Iterable<MatrixSlice>> xdata = ThreadedKmeans.split(data, 3 * threads);
-            long t0 = System.currentTimeMillis();
-            Searcher x = new ThreadedKmeans().cluster(new EuclideanDistanceMeasure(), xdata, 200, threads);
-            long t1 = System.currentTimeMillis();
-            System.out.printf("%d\t%.2f\t%.2f\n", threads, (t3 - t2) / 1000.0 / rows * 1e6, (t1 - t0) / 1000.0 / rows * 1e6);
+        final int width = 30;
+        final EuclideanDistanceMeasure distance = new EuclideanDistanceMeasure();
+
+        final StreamingKmeans.CentroidFactory psFactory = new StreamingKmeans.CentroidFactory() {
+            @Override
+            public UpdatableSearcher create() {
+                return new ProjectionSearch(width, distance, 4, 10);
+            }
+        };
+
+        final StreamingKmeans.CentroidFactory bruteFactory = new StreamingKmeans.CentroidFactory() {
+            @Override
+            public UpdatableSearcher create() {
+                return new ProjectionSearch(width, distance, 10, 20);
+            }
+        };
+
+        long t4 = System.currentTimeMillis();
+        Searcher y = new StreamingKmeans().cluster(data, 200, psFactory);
+        long t5 = System.currentTimeMillis();
+        double[] refRMSE = rmse(test, y);
+
+        Searcher z1 = new ProjectionSearch(30, distance, 4, 10);
+        Searcher z2 = new ProjectionSearch(30, distance, 10, 20);
+        for (MultiNormal cluster : gen.gen) {
+            z1.add(cluster.getMean(), -1);
+            z2.add(cluster.getMean(), -1);
         }
+
+        double[] z1RMSE = rmse(test, z1);
+        double[] z2RMSE = rmse(test, z2);
+        System.out.printf("%.2f\t%.2f\t%.2f\t%.2f\n", z1RMSE[0], z1RMSE[1], z2RMSE[0], z2RMSE[1]);
+
+
+        System.out.printf("%.2f\n", (t5 - t4) / 1000.0 / rows * 1e6);
+
+
+        for (int threads : new int[]{1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16}) {
+            List<Iterable<MatrixSlice>> xdata = ThreadedKmeans.split(data, 2 * threads);
+            long t0 = System.nanoTime();
+
+            Searcher x = new ThreadedKmeans().cluster(distance, xdata, 200, threads, psFactory);
+            long t1 = System.nanoTime();
+            double[] psRMSE = rmse(test, x);
+
+            long t2 = System.nanoTime();
+            x = new ThreadedKmeans().cluster(distance, xdata, 200, threads, bruteFactory);
+            long t3 = System.nanoTime();
+            double[] bruteRMSE = rmse(test, x);
+
+            System.out.printf("%d\t%.2f\t%.2f\t", threads, (t3 - t2) / 1e9 / rows * 1e6, (t1 - t0) / 1e9 / rows * 1e6);
+//            System.out.printf("%.2f\t%.2f\n", refRMSE[0], refRMSE[1]);
+//                    , psRMSE[0], psRMSE[1]);
+            System.out.printf("%.2f\t%.2f\t%.2f\t%.2f\t%2f\t%.2f\n", refRMSE[0], refRMSE[1], psRMSE[0], psRMSE[1], bruteRMSE[0], bruteRMSE[1]);
+        }
+
+
+    }
+
+    private static class PointSampler implements Sampler<Vector> {
+        List<MultiNormal> gen = Lists.newArrayList();
+        Sampler<Vector> means = new MultiNormal(30);
+        ChineseRestaurant clusterId = new ChineseRestaurant(5);
+        private double radius;
+
+        private PointSampler(double radius) {
+            this.radius = radius;
+        }
+
+        public Vector sample() {
+            int id = clusterId.sample();
+            while (gen.size() <= id) {
+                gen.add(new MultiNormal(radius, means.sample()));
+            }
+            return gen.get(id).sample();
+        }
+
+        public int size() {
+            return clusterId.size();
+        }
+    }
+
+    private static double[] rmse(Matrix data, Searcher s) {
+        Brute ref = new Brute(new EuclideanDistanceMeasure());
+        ref.addAll(s);
+
+        double sum1 = 0;
+        double sum2 = 0;
+        int rows = 0;
+        for (MatrixSlice row : data) {
+            WeightedVector v = ref.search(row.vector(), 1).get(0);
+            sum1 += v.getWeight() * v.getWeight();
+
+            v = s.search(row.vector(), 1).get(0);
+            sum2 += v.getWeight() * v.getWeight();
+            rows++;
+        }
+        sum1 = Math.sqrt(sum1 / rows / data.columnSize());
+        sum2 = Math.sqrt(sum2 / rows / data.columnSize());
+        return new double[]{sum1, sum2};
     }
 
     public static void main(String[] args) throws ExecutionException, InterruptedException {

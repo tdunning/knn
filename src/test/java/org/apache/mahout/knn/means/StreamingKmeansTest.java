@@ -21,7 +21,9 @@ import com.google.common.collect.Lists;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.knn.generate.MultiNormal;
+import org.apache.mahout.knn.search.ProjectionSearch;
 import org.apache.mahout.knn.search.Searcher;
+import org.apache.mahout.knn.search.UpdatableSearcher;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.MatrixSlice;
@@ -62,7 +64,13 @@ public class StreamingKmeansTest {
         long t0 = System.currentTimeMillis();
 
         // cluster the data
-        Searcher r = new StreamingKmeans().cluster(new EuclideanDistanceMeasure(), data, 1000);
+        final EuclideanDistanceMeasure distance = new EuclideanDistanceMeasure();
+        Searcher r = new StreamingKmeans().cluster(data, 1000, new StreamingKmeans.CentroidFactory() {
+            @Override
+            public UpdatableSearcher create() {
+                return new ProjectionSearch(3, distance, 8, 20);
+            }
+        });
         long t1 = System.currentTimeMillis();
 
         assertEquals("Total weight not preserved", totalWeight(data), totalWeight(r), 1e-9);

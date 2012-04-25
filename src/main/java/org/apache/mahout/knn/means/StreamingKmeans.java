@@ -27,7 +27,6 @@ import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.knn.search.ProjectionSearch;
 import org.apache.mahout.knn.search.Searcher;
 import org.apache.mahout.knn.search.UpdatableSearcher;
-import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.MatrixSlice;
 
 import java.util.Collections;
@@ -35,24 +34,39 @@ import java.util.List;
 import java.util.Random;
 
 public class StreamingKmeans {
-    private DistanceMeasure distance;
+    // this parameter should be greater than 1, but not too much greater.
+    // keeping BETA small makes the characteristic size grow more slowly
+    // and small values of characteristic size seem to make the clustering
+    // a bit better.  Too small a value of BETA, however, means that we
+    // have to collapse the set of centroids too often.
+    private static final double BETA = 1.3;
+
+    // this is the current value of the characteristic size.  Points
+    // which are much closer than this to a centroid will stick to it
+    // almost certainly.  Points further than this to any centroid will
+    // form a new cluster.
     private double distanceCutoff;
 
-    public Searcher cluster(DistanceMeasure distance, Iterable<MatrixSlice> data, int maxClusters) {
+    public Searcher cluster(final DistanceMeasure distance, Iterable<MatrixSlice> data, int maxClusters) {
+        final int width = data.iterator().next().vector().size();
+        return cluster(data, maxClusters, new CentroidFactory() {
+            @Override
+            public UpdatableSearcher create() {
+                return new ProjectionSearch(width, distance, 10, 20);
+            }
+        });
+    }
+
+    public interface CentroidFactory {
+        UpdatableSearcher create();
+    }
+
+    public Searcher cluster(Iterable<MatrixSlice> data, int maxClusters, CentroidFactory centroidFactory) {
         // initialize scale
         distanceCutoff = estimateCutoff(data);
-        this.distance = distance;
 
         // cluster the data
-        return clusterInternal(data, maxClusters, 1);
-    }
-    
-    public List<Integer> assign(Searcher centroids, Iterable<MatrixSlice> data) {
-        List<Integer> r = Lists.newArrayList();
-        for (MatrixSlice row : data) {
-            r.add(centroids.search(row.vector(), 1).get(0).getIndex());
-        }
-        return r;
+        return clusterInternal(data, maxClusters, 1, centroidFactory);
     }
 
     public static double estimateCutoff(Iterable<MatrixSlice> data) {
@@ -72,32 +86,28 @@ public class StreamingKmeans {
         return distanceCutoff;
     }
 
-    private UpdatableSearcher clusterInternal(Iterable<MatrixSlice> data, int maxClusters, int depth) {
-        int width = data.iterator().next().vector().size();
-        UpdatableSearcher centroids = new ProjectionSearch(width, distance, 4, 10);
+    private UpdatableSearcher clusterInternal(Iterable<MatrixSlice> data, int maxClusters, int depth, CentroidFactory centroidFactory) {
 
-        // now we scan the data and either add each point to the nearest group or create a new group
-        // when we get too many groups, then we need to increase the threshold and rescan our current groups
+        // to cluster, we scan the data and either add each point to the nearest group or create a new group.
+        // when we get too many groups, we need to increase the threshold and rescan our current groups
         Random rand = RandomUtils.getRandom();
         int n = 0;
-        for (MatrixSlice row : data) {
-            if (centroids.size() == 0) {
-                // add first centroid on first vector
+        UpdatableSearcher centroids = centroidFactory.create();
+        centroids.add(Centroid.create(0, Iterables.get(data, 0).vector()), 0);
+
+        for (MatrixSlice row : Iterables.skip(data, 1)) {
+            // estimate distance d to closest centroid
+            WeightedVector closest = centroids.search(row.vector(), 1).get(0);
+
+            if (rand.nextDouble() < closest.getWeight() / distanceCutoff) {
+                // add new centroid, note that the vector is copied because we may mutate it later
                 centroids.add(Centroid.create(centroids.size(), row.vector()), centroids.size());
             } else {
-                // estimate distance d to closest centroid
-                WeightedVector closest = centroids.search(row.vector(), 1).get(0);
-
-                if (rand.nextDouble() < closest.getWeight() / distanceCutoff) {
-                    // add new centroid, note that the vector is copied because we may mutate it later
-                    centroids.add(Centroid.create(centroids.size(), row.vector()), centroids.size());
-                } else {
-                    // merge against existing
-                    Centroid c = (Centroid) closest.getVector();
-                    centroids.remove(c);
-                    c.update(row.vector());
-                    centroids.add(c, c.getIndex());
-                }
+                // merge against existing
+                Centroid c = (Centroid) closest.getVector();
+                centroids.remove(c);
+                c.update(row.vector());
+                centroids.add(c, c.getIndex());
             }
 
             if (depth < 2 && centroids.size() > maxClusters) {
@@ -105,12 +115,14 @@ public class StreamingKmeans {
                 // TODO does shuffling help?
                 List<MatrixSlice> shuffled = Lists.newArrayList(centroids);
                 Collections.shuffle(shuffled);
-                centroids = clusterInternal(shuffled, maxClusters, depth + 1);
-                // for distributions with sharp scale effects, the distanceCutoff can grow to
-                // excessive size leading sub-clustering to collapse the centroids set too much.
-                // This test prevents that collapse from getting too severe.
-                if (centroids.size() > 0.1 * maxClusters) {
-                    distanceCutoff *= 1.5;
+                centroids = clusterInternal(shuffled, maxClusters, depth + 1, centroidFactory);
+
+                // in the original algorithm, with distributions with sharp scale effects, the
+                // distanceCutoff can grow to excessive size leading sub-clustering to collapse
+                // the centroids set too much. This test prevents increase in distanceCutoff
+                // the current value is doing fine at collapsing the clusters.
+                if (centroids.size() > 0.2 * maxClusters) {
+                    distanceCutoff *= BETA;
                 }
             }
             n++;
