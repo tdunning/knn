@@ -18,6 +18,7 @@
 package org.apache.mahout.knn;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import org.apache.mahout.math.AbstractMatrix;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.Matrix;
@@ -32,6 +33,7 @@ import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.List;
 
 /**
  * Provides a way to get data from a file and treat it as if it were a matrix, but avoids putting all that
@@ -39,7 +41,8 @@ import java.nio.channels.FileChannel;
  * that instead.
  */
 public class FileBasedMatrix extends AbstractMatrix {
-    private DoubleBuffer content;
+    private int rowsPerBlock;
+    private List<DoubleBuffer> content = Lists.newArrayList();
 
     /**
      * Constructs an empty matrix of the given size.
@@ -49,20 +52,34 @@ public class FileBasedMatrix extends AbstractMatrix {
      */
     public FileBasedMatrix(int rows, int columns) {
         super(rows, columns);
+        long maxRows = ((1L << 31) - 1) / (columns * 8);
+        if (rows > maxRows) {
+            rowsPerBlock = (int) maxRows;
+        } else {
+            rowsPerBlock = rows;
+        }
     }
 
-    public void setData(DoubleBuffer content) {
-        Preconditions.checkArgument(content.remaining() == rows * columns);
-        this.content = content;
+    private void addData(DoubleBuffer content) {
+        this.content.add(content);
     }
 
-    public void setData(File f) throws IOException {
-        MappedByteBuffer buf = new FileInputStream(f).getChannel().map(FileChannel.MapMode.READ_ONLY, 0, f.length());
-        buf.load();
-        setData(buf.asDoubleBuffer());
+    public void setData(File f, boolean loadNow) throws IOException {
+        Preconditions.checkArgument(f.length() == (long) rows * columns * 8L, "File " + f + " is wrong length");
+
+        for (int i = 0; i < (rows + rowsPerBlock - 1) / rowsPerBlock; i++) {
+            long start = (long) i * rowsPerBlock * columns * 8L;
+            long size = rowsPerBlock * columns * 8L;
+            MappedByteBuffer buf = new FileInputStream(f).getChannel().map(FileChannel.MapMode.READ_ONLY, start, Math.min(f.length() - start, size));
+            if (loadNow) {
+                buf.load();
+            }
+            addData(buf.asDoubleBuffer());
+        }
     }
 
     public static void writeMatrix(File f, Matrix m) throws IOException {
+        Preconditions.checkArgument(f.canWrite(), "Can't write to output file");
         FileOutputStream fos = new FileOutputStream(f);
 
         ByteBuffer buf = ByteBuffer.allocate(m.columnSize() * 8);
@@ -114,7 +131,8 @@ public class FileBasedMatrix extends AbstractMatrix {
      */
     @Override
     public double getQuick(int row, int column) {
-        return content.get(row * columns + column);
+        int block = row / rowsPerBlock;
+        return content.get(block).get((row % rowsPerBlock) * columns + column);
     }
 
     /**
