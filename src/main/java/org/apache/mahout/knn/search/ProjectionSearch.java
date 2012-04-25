@@ -167,4 +167,11 @@ public class ProjectionSearch extends UpdatableSearcher implements Iterable<Matr
             return false;
         }
     }
+
+    @Override
+    public void clear() {
+        for (TreeSet<WeightedVector> set : vectors) {
+            set.clear();
+        }
+    }
 }

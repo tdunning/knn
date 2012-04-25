@@ -210,4 +210,9 @@ public class Brute extends UpdatableSearcher {
         }
         return false;
     }
+
+    @Override
+    public void clear() {
+        reference.clear();
+    }
 }

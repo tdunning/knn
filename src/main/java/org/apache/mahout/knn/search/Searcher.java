@@ -47,4 +47,8 @@ public abstract class Searcher implements Iterable<MatrixSlice> {
     public boolean remove(Vector v) {
         throw new UnsupportedOperationException("Can't remove a vector from a " + this.getClass().getName());
     }
+
+    public void clear() {
+        throw new UnsupportedOperationException("default no can do");  //To change body of created methods use File | Settings | File Templates.
+    }
 }
