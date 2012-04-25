@@ -32,7 +32,7 @@ import java.util.Random;
 public class MultiNormal implements Sampler<Vector> {
     private final Random gen;
     private final int dimension;
-    private final Matrix a;
+    private final Matrix mean;
     private final Vector offset;
 
     public MultiNormal(Vector diagonal) {
@@ -55,10 +55,10 @@ public class MultiNormal implements Sampler<Vector> {
         this(new DiagonalMatrix(radius, mean.size()), mean);
     }
 
-    private MultiNormal(Matrix a, Vector offset, int dimension) {
+    private MultiNormal(Matrix mean, Vector offset, int dimension) {
         gen = RandomUtils.getRandom();
         this.dimension = dimension;
-        this.a = a;
+        this.mean = mean;
         this.offset = offset;
     }
 
@@ -73,13 +73,17 @@ public class MultiNormal implements Sampler<Vector> {
                 }
         );
         if (offset != null) {
-            return a.times(v).plus(offset);
+            return mean.times(v).plus(offset);
         } else {
-            if (a != null) {
-                return a.times(v);
+            if (mean != null) {
+                return mean.times(v);
             } else {
                 return v;
             }
         }
+    }
+
+    public Vector getMean() {
+        return offset;
     }
 }

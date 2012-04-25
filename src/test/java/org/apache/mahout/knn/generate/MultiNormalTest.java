@@ -65,4 +65,17 @@ public class MultiNormalTest {
             assertEquals(0, cross[j].getMean() / cross[j].getSD(), 0.04);
         }
     }
+
+
+    @Test
+    public void testRadius() {
+        MultiNormal gen = new MultiNormal(0.1, new DenseVector(10));
+        OnlineSummarizer s = new OnlineSummarizer();
+        for (int i = 0; i < 10000; i++) {
+            double x = gen.sample().norm(2) / Math.sqrt(10);
+            s.add(x);
+        }
+        assertEquals(0.1, s.getMean(), 0.01);
+
+    }
 }
