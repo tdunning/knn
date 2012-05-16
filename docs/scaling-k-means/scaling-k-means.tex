@@ -98,13 +98,14 @@ The algorithm for searching a projection search like this is also quite simple
 
 \begin{algorithm}[H]
 \SetNoFillComment
-\KwIn{query vector $q$, projection vectors, $v_1 \ldots v_m$, tree sets $s_1 \ldots s_m$ }
+\KwIn{query vector $q$, projection vectors, $v_1 \ldots v_m$, tree sets $s_1 \ldots s_m$, search depth $l$ }
 \KwOut{approximation of the $k$ vectors nearest to $q$ }
 candidate set $r = \lbrace \rbrace$ \\
 \ForEach{$j \in 1 \ldots m$}{
    $z = v_j \cdot q$ \\
-   $r = r \cup \mathtt{tailSet} (s_j, z)[1 \ldots l]  \cup \mathtt{reverse} ( \mathtt{headSet}(z))[1 \ldots l]$
+   $r = r \cup \mathtt{tailSet} (s_j, z)[1 \ldots l]  \cup \mathtt{reverse} ( \mathtt{headSet}(s_j, z))[1 \ldots l]$
 }
+\tcp{sort by distance from $q$}
 \Return { $\mathtt{sort}(r, \lambda u. |u-q|)[1 \ldots k] $}
 \caption{Projection search \label{projection-search}}
 \end{algorithm}
@@ -113,7 +114,7 @@ The idea here is that the set $r$ is constructed out of the elements that are le
 
 For the purposes of streaming $k$-means, only the nearest cluster is required and it isn't even necessary that precisely the nearest cluster be returned every time.  The ratio of the distance to the nearest returned item to the distance to the true nearest neighbor is also interesting.  For a given data distribution, both the probability of correct return and this ratio depend on the dimension of the problem, the search size $l$ and the number of projections $m$.  
 
-Figure \ref{projection-probability} shows how the probability of finding the nearest cluster declines with increasing dimension for a search 10,000 points that have a unit normal distribution.  It should be noted that even with 500 dimensions, the probability of finding the nearest cluster is high enough that combining 20 projections provides a roughly 80\% chance of finding the nearest cluster.   The theoretical bounds on the streaming $k$-means algorithm given in \cite{DBLP:conf/nips/ShindlerWM11} suggest that high accuracy in finding the nearest clustering during the clustering algorithm is not necessary for achieving high clustering quality, but that situation is different when doing nearest neighbor search using a $k$-means clustering as a component of the search.  Using the same projection search during assignment of points to centroids as during search may help with this since errors in assignment to clusters may be correlated.
+Figure \ref{projection-probability} shows how the probability of finding the nearest cluster declines with increasing dimension for a search 10,000 points that have a unit normal distribution.  It should be noted that with 20 independent projections, the probability of not finding the nearest neighbor with a single projection declines because all of the projections must miss the nearest neighbor.  Even with 500 dimensions, the probability of finding the nearest cluster is high enough that combining 20 projections provides about a 80\% chance of finding the nearest cluster (roughly speaking, $ 1-90\%^{20}$).    The theoretical bounds on the streaming $k$-means algorithm given in \cite{DBLP:conf/nips/ShindlerWM11} suggest that high accuracy in finding the nearest clustering during the clustering algorithm is not necessary for achieving high clustering quality, but that situation is different when doing nearest neighbor search using a $k$-means clustering as a component of the search.  Using the same projection search during assignment of points to centroids as during search may help with this since errors in assignment to clusters may be correlated.
 \begin{figure}[htbp]
 \begin{center}
 \includegraphics[width=4in]{projection-probability.pdf}
@@ -159,7 +160,7 @@ $n = x_1[w]$ \\
 
 The search for the nearest cluster is implemented using the projection search defined above as Algorithm \ref{projection-search}.
 
-The clustering algorithm as stated here has been changed from the original streaming $k$-means in several respects.  These change include the way that the distance cutoff is only conditionally increased and the way that $\kappa$ depends on the points seen so far rather than on the total number of points.  Both changes seem to have a positive impact in practice and there seems at first glance to be no real difference in the theoretical bounds on the algorithm due to these changes.
+The clustering algorithm as stated here has been changed from the original streaming $k$-means in several respects.  These changes include the way that the distance cutoff is only conditionally increased and the way that $\kappa$ depends on the points seen so far rather than on the total number of points.  Both changes seem to have a positive impact in practice and there seems at first glance to be no real difference in the theoretical bounds on the algorithm due to these changes.
 \subsection{Map-reduce Implementation}
 
 The map-reduce implementation of streaming $k$-means is straightforward.  The first step is computation of an initial cutoff using a sample of points from throughout the input sequence.  Then the input data is split and each split is passed to a mapper that consists of an instance of the streaming $k$-means algorithm.  The results of clustering each split are all passed to a single reducer uses the streaming $k$-means function to combine the clusters as needed.
@@ -179,9 +180,9 @@ $\kappa = \max\left(\kappa_0, 10 \log n \right)$\\
 
 \subsection{Single Core and Multi-core Speeds}
 
-Figure \ref{threaded-timing-16-core} shows how a single-threaded implementation of streaming $k$-means compares with a multi-threaded implementation when run on a 16 core machine.  This test used 1 million samples of normally distributed 30-dimensional random data.  
+Figure \ref{threaded-timing-16-core} shows how a single-threaded implementation of streaming $k$-means compares with a multi-threaded implementation when run on a 16 core machine (2 x Intel Xeon E5-2670, eight-core "Sandy Bridge" architecture).  This test used 1 million samples of normally distributed 30-dimensional random data.  
 
-The threaded implementation exhibits  overhead relative to the single-threaded implementation as evidenced by the relative performance of the two implementations with a single thread.  Adding more cores provides nearly perfect scaling of run time up to 14 cores.  The limited improvement beyond this point is probably due to the fact that the input is always split into exactly 36 segments and when the number of threads is large, load balancing suffers.  
+The threaded implementation exhibits  overhead relative to the single-threaded implementation as evidenced by the relative performance of the two implementations with a single thread.  Adding more cores provides nearly perfect scaling of run time up to 14 cores.  The limited improvement beyond this point is may be due to the fact that the input is always split into exactly 36 segments and when the number of threads is large, load balancing suffers.   The limited improvement may also be collision of the worker threads with JVM reserved threads which are going, among other things, concurrent garbage collection in parallel with the worker threads.
 \begin{figure}[htbp]
 \begin{center}
 \includegraphics[width=4in]{thread-timing-16-core-1M.pdf}
