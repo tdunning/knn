@@ -21,6 +21,7 @@ import com.google.common.collect.Lists;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.knn.generate.MultiNormal;
+import org.apache.mahout.knn.lsh.LocalitySensitiveHash;
 import org.apache.mahout.knn.search.ProjectionSearch;
 import org.apache.mahout.knn.search.Searcher;
 import org.apache.mahout.knn.search.UpdatableSearcher;
@@ -61,16 +62,26 @@ public class StreamingKmeansTest {
         for (MatrixSlice row : data) {
             row.vector().assign(rowSamplers.get(row.index() % 8).sample());
         }
-        long t0 = System.currentTimeMillis();
 
         // cluster the data
         final EuclideanDistanceMeasure distance = new EuclideanDistanceMeasure();
-        Searcher r = new StreamingKmeans().cluster(data, 1000, new StreamingKmeans.CentroidFactory() {
+        clusterCheck(mean, "projection", data, new StreamingKmeans.SearchFactory() {
             @Override
             public UpdatableSearcher create() {
-                return new ProjectionSearch(3, distance, 8, 20);
+                return new ProjectionSearch(3, distance, 4, 10);
             }
         });
+        clusterCheck(mean, "k-means", data, new StreamingKmeans.SearchFactory() {
+            @Override
+            public UpdatableSearcher create() {
+                return new LocalitySensitiveHash(3, distance, 10);
+            }
+        });
+    }
+
+    private void clusterCheck(Matrix mean, String title, Matrix data, StreamingKmeans.SearchFactory searchFactory) {
+        long t0 = System.currentTimeMillis();
+        Searcher r = new StreamingKmeans().cluster(data, 1000, searchFactory);
         long t1 = System.currentTimeMillis();
 
         assertEquals("Total weight not preserved", totalWeight(data), totalWeight(r), 1e-9);
@@ -80,8 +91,8 @@ public class StreamingKmeansTest {
             WeightedVector v = r.search(row.vector(), 1).get(0);
             assertTrue(v.getWeight() < 0.05);
         }
-        System.out.printf("%.2f for clustering\n%.1f us per row\n",
-                (t1 - t0) / 1000.0, (t1 - t0) / 1000.0 / data.rowSize() * 1e6);
+        System.out.printf("%s\n%.2f for clustering\n%.1f us per row\n\n",
+                title, (t1 - t0) / 1000.0, (t1 - t0) / 1000.0 / data.rowSize() * 1e6);
     }
 
     private double totalWeight(Iterable<MatrixSlice> data) {

@@ -35,7 +35,7 @@ import java.util.concurrent.Future;
 
 public class ThreadedKmeans {
 
-    public Searcher cluster(final DistanceMeasure distance, List<Iterable<MatrixSlice>> data, final int maxClusters, final int threads, final StreamingKmeans.CentroidFactory centroidFactory) throws InterruptedException, ExecutionException {
+    public Searcher cluster(final DistanceMeasure distance, List<Iterable<MatrixSlice>> data, final int maxClusters, final int threads, final StreamingKmeans.SearchFactory centroidFactory) throws InterruptedException, ExecutionException {
         // initialize scale
         int i = 0;
         final int width = data.get(0).iterator().next().vector().size();

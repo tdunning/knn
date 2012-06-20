@@ -50,12 +50,12 @@ public class CentroidTest {
         assertEquals(0, x2.minus(a.plus(b).divide(2)).norm(1), 1e-8);
         assertEquals(2, x2.getWeight(), 0);
 
-        assertEquals(0, new Centroid(x1.getKey(), x1, x1.getWeight()).minus(x1).norm(1), 1e-8);
+        assertEquals(0, new Centroid(x1.getIndex(), x1, x1.getWeight()).minus(x1).norm(1), 1e-8);
 
         // and verify shared storage
         assertEquals(0, x.minus(x1).norm(1), 0);
 
         assertEquals(3, x1.getWeight(), 1e-8);
-        assertEquals(1, x1.getKey());
+        assertEquals(1, x1.getIndex());
     }
 }

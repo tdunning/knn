@@ -49,7 +49,7 @@ public class StreamingKmeans {
 
     public Searcher cluster(final DistanceMeasure distance, Iterable<MatrixSlice> data, int maxClusters) {
         final int width = data.iterator().next().vector().size();
-        return cluster(data, maxClusters, new CentroidFactory() {
+        return cluster(data, maxClusters, new SearchFactory() {
             @Override
             public UpdatableSearcher create() {
                 return new ProjectionSearch(width, distance, 10, 20);
@@ -57,16 +57,19 @@ public class StreamingKmeans {
         });
     }
 
-    public interface CentroidFactory {
+    /**
+     * Provides a way to plug in alternative searchers for use in the clustering operation.
+     */
+    public interface SearchFactory {
         UpdatableSearcher create();
     }
 
-    public Searcher cluster(Iterable<MatrixSlice> data, int maxClusters, CentroidFactory centroidFactory) {
+    public Searcher cluster(Iterable<MatrixSlice> data, int maxClusters, SearchFactory searchFactory) {
         // initialize scale
         distanceCutoff = estimateCutoff(data);
 
         // cluster the data
-        return clusterInternal(data, maxClusters, 1, centroidFactory);
+        return clusterInternal(data, maxClusters, 1, searchFactory);
     }
 
     public static double estimateCutoff(Iterable<MatrixSlice> data) {
@@ -86,13 +89,13 @@ public class StreamingKmeans {
         return distanceCutoff;
     }
 
-    private UpdatableSearcher clusterInternal(Iterable<MatrixSlice> data, int maxClusters, int depth, CentroidFactory centroidFactory) {
+    private UpdatableSearcher clusterInternal(Iterable<MatrixSlice> data, int maxClusters, int depth, SearchFactory searchFactory) {
 
         // to cluster, we scan the data and either add each point to the nearest group or create a new group.
         // when we get too many groups, we need to increase the threshold and rescan our current groups
         Random rand = RandomUtils.getRandom();
         int n = 0;
-        UpdatableSearcher centroids = centroidFactory.create();
+        UpdatableSearcher centroids = searchFactory.create();
         centroids.add(Centroid.create(0, Iterables.get(data, 0).vector()), 0);
 
         for (MatrixSlice row : Iterables.skip(data, 1)) {
@@ -115,7 +118,7 @@ public class StreamingKmeans {
                 // TODO does shuffling help?
                 List<MatrixSlice> shuffled = Lists.newArrayList(centroids);
                 Collections.shuffle(shuffled);
-                centroids = clusterInternal(shuffled, maxClusters, depth + 1, centroidFactory);
+                centroids = clusterInternal(shuffled, maxClusters, depth + 1, searchFactory);
 
                 // in the original algorithm, with distributions with sharp scale effects, the
                 // distanceCutoff can grow to excessive size leading sub-clustering to collapse

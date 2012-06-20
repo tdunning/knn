@@ -3,128 +3,140 @@ package org.apache.mahout.knn.lsh;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
+import com.google.common.collect.Sets;
+import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.common.distance.DistanceMeasure;
+import org.apache.mahout.knn.search.UpdatableSearcher;
 import org.apache.mahout.math.DenseMatrix;
-import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.Vector;
-import org.apache.mahout.math.function.Functions;
-import org.apache.mahout.math.list.IntArrayList;
 import org.apache.mahout.knn.WeightedVector;
-import org.apache.mahout.knn.search.Searcher;
+import org.apache.mahout.math.jet.random.Normal;
+import org.apache.mahout.math.stats.OnlineSummarizer;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.PriorityQueue;
-import java.util.TreeSet;
+import java.util.Set;
 
 /**
- * Created by IntelliJ IDEA.
- * User: asanka
- * Date: 3/28/12
- * Time: 11:52 PM
- * To change this template use File | Settings | File Templates.
+ * Implements a Searcher that uses locality sensitivity hash as a first pass approximation
+ * to estimate distance without floating point math.  The clever bit about this implementation
+ * is that it does an adaptive cutoff for the cutoff on the bitwise distance.  Making this
+ * cutoff adaptive means that we only needs to make a single pass through the data.
  */
-public class LocalitySensitiveHash extends Searcher implements Iterable<MatrixSlice> {
-    private DistanceMeasure distance;
-    private List<WeightedVector> trainingVectors;
+public class LocalitySensitiveHash extends UpdatableSearcher implements Iterable<MatrixSlice> {
+    private static final int BITS = 64;
+    private static final long BITMASK = ((-1L) >>> (64 - BITS));
 
-    // private ArrayList<Integer> displacementList  = Lists.newArrayList();
-    private int[] displacementCount = new int[33];
-    private int searchSize;
-    int h1;
-    int h2;
+    private DistanceMeasure distance;
+    private Set<HashedVector> trainingVectors = Sets.newHashSet();
+
+
     // this matrix of 32 random vectors is used to compute the Locality Sensitive Hash
     // we compute the dot product with these vectors using a matrix multiplication and then use just
     // sign of each result as one bit in the hash
-    private Matrix ranHash;
-    public LocalitySensitiveHash(DistanceMeasure distance, int nVar, int searchSize) {
+    private Matrix projection;
+
+    // the search size determines how many top results we retain.  We do this because the hash distance
+    // isn't guaranteed to be entirely monotonic with respect to the real distance.  To the extent that
+    // actual distance is well approximated by hash distance, then the searchSize can be decreased to
+    // roughly the number of results that you want.
+    private int searchSize;
+
+    // controls how the hash limit is raised.  0 means use minimum of distribution, 1 means use first quartile.
+    // intermediate values indicate an interpolation should be used.  Negative values mean to never increase.
+    private double hashLimitStrategy = 0.9;
+
+    private int distanceEvaluations = 0;
+
+    public LocalitySensitiveHash(int dimension, DistanceMeasure distance, int searchSize) {
         this.distance = distance;
         this.searchSize = searchSize;
-        trainingVectors = Lists.newArrayList();
-        // for initializing vectors
-        ranHash = new DenseMatrix(32, nVar);
-        for (int j=0; j < 32; j++){
-            for(int k=0; k < nVar; k++){
-                ranHash.set(j,k,((Math.random()*2)-1));
+
+        projection = new DenseMatrix(BITS, dimension);
+        projection.assign(new Normal(0, 1, RandomUtils.getRandom()));
+    }
+
+    public List<WeightedVector> search(Vector q, int numberOfNeighbors) {
+        long queryHash = HashedVector.computeHash64(q, projection);
+
+        // we keep an approximation of the closest vectors here
+        PriorityQueue<WeightedVector> top = new PriorityQueue<WeightedVector>(getSearchSize(), Ordering.natural().reverse());
+
+        // we keep the counts of the hash distances here.  This lets us accurately
+        // judge what hash distance cutoff we should use.
+        int[] hashCounts = new int[BITS + 1];
+
+        // we scan the vectors using bit counts as an approximation of the dot product so we can do as few
+        // full distance computations as possible.  Our goal is to only do full distance computations for
+        // vectors with hash distance at most as large as the searchSize biggest hash distance seen so far.
+
+        // in this loop, we have the invariants that
+        //
+        // limitCount = sum_{i<hashLimit} hashCount[i]
+        // and
+        // limitCount >= searchSize && limitCount - hashCount[hashLimit-1] < searchSize
+
+        OnlineSummarizer[] distribution = new OnlineSummarizer[BITS + 1];
+        for (int i = 0; i < BITS + 1; i++) {
+            distribution[i] = new OnlineSummarizer();
+        }
+
+        int hashLimit = BITS;
+        int limitCount = 0;
+        double distanceLimit = Double.POSITIVE_INFINITY;
+        for (HashedVector v : trainingVectors) {
+            int bitDot = Long.bitCount(v.getHash() ^ queryHash);
+            if (bitDot <= hashLimit) {
+                distanceEvaluations++;
+                double d = distance.distance(q, v);
+                distribution[bitDot].add(d);
+                if (d < distanceLimit) {
+                    top.add(new WeightedVector(v.getVector(), d, v.getIndex()));
+                    while (top.size() > searchSize) {
+                        top.poll();
+                    }
+
+                    if (top.size() == searchSize) {
+                        distanceLimit = top.peek().getWeight();
+                    }
+
+                    hashCounts[bitDot]++;
+                    limitCount++;
+                    while (hashLimit > 0 && limitCount - hashCounts[hashLimit - 1] > searchSize) {
+                        hashLimit--;
+                        limitCount -= hashCounts[hashLimit];
+                    }
+
+                    if (hashLimitStrategy >= 0) {
+                        while (hashLimit < 32 && distribution[hashLimit].getCount() > 10 &&
+                                (hashLimitStrategy * distribution[hashLimit].getQuartile(1)) + ((1 - hashLimitStrategy) * distribution[hashLimit].getQuartile(0)) < distanceLimit) {
+                            limitCount += hashCounts[hashLimit];
+                            hashLimit++;
+                        }
+                    }
+                }
             }
         }
+
+        List<WeightedVector> r = Lists.newArrayList(top);
+        Collections.sort(r);
+        return r.subList(0, numberOfNeighbors);
     }
-    public List<WeightedVector> search(Vector testingObs, int numberOfNeighbors) {
 
-        int query = computeHash(testingObs);
-        for (int i=0; i<=32; i++) {
-        	displacementCount[i]=0;
-        }
-        // displacementList.clear();
-        for (WeightedVector v : trainingVectors) {
-        	int training = (int)v.getWeight();
-            int approximateDistance = Integer.bitCount(query ^ training);
-            v.setIndex(approximateDistance);
-            displacementCount[approximateDistance] += 1;
-        };
-        // System.out.println(trainingVectors.size());
-        // System.out.println(trainingVectors.get(1).getWeight());
 
-        h1 = 0;
-        h2 = 0;
-        for (int i=0; i<=32; i++) {
-        	h1 += displacementCount[i];
-        	if (h1 >= searchSize) {
-        		h2 = i;
-        		break;
-        	}
-        }
-        
-        List<WeightedVector> top = Lists.newArrayList();
-
-        for (WeightedVector v : trainingVectors) {
-            if (v.getIndex() <= h2) {
-                double dist = distance.distance(testingObs, v.getVector().viewPart(1,v.getVector().size()-1));
-                top.add(new WeightedVector(v.getVector().clone(), dist, -1));
-            }
-        }
-
-        // Collections.sort(top, byQueryDistance(testingObs));
-        Collections.sort(top);
-        return top.subList(0, numberOfNeighbors);
-    }
-    
-
-    
-    public int countVectors() {
-        int k = 0;
-        for (WeightedVector v : trainingVectors) {
-            if (v.getIndex() <= h2) {
-                k++;
-            }
-        }
-        return k;
-    }
-    
     public void add(Vector v, int index) {
-    	double weight = computeHash(v.viewPart(1, v.size()-1));
-        trainingVectors.add(new WeightedVector(v,weight,index));
-        }
-
-
-    private int computeHash(Vector v) {
-        int r = 0;
-        for (Vector.Element element : ranHash.times(v)) {
-            if (element.get() > 0) {
-                r +=1 << element.index();
-            }
-        }
-        return r;
+        trainingVectors.add(HashedVector.hash(v, projection, index, BITMASK));
     }
-    
+
+
     public int size() {
         return trainingVectors.size();
     }
-    
+
     @Override
     public int getSearchSize() {
         return searchSize;
@@ -135,20 +147,40 @@ public class LocalitySensitiveHash extends Searcher implements Iterable<MatrixSl
         searchSize = size;
     }
 
+    public void setRaiseHashLimitStrategy(double strategy) {
+        hashLimitStrategy = strategy;
+    }
+
+    public int resetEvaluationCount() {
+        int r = distanceEvaluations;
+        distanceEvaluations = 0;
+        return r;
+    }
+
     @Override
     public Iterator<MatrixSlice> iterator() {
         return new AbstractIterator<MatrixSlice>() {
             int index = 0;
-            Iterator<WeightedVector> data = trainingVectors.iterator();
+            Iterator<HashedVector> data = trainingVectors.iterator();
 
             @Override
             protected MatrixSlice computeNext() {
                 if (!data.hasNext()) {
                     return endOfData();
                 } else {
-                    return new MatrixSlice(data.next(), index++);
+                    return new MatrixSlice(data.next().getVector(), index++);
                 }
             }
         };
+    }
+
+    @Override
+    public boolean remove(Vector v) {
+        return trainingVectors.remove(HashedVector.hash(v, projection, 0, BITMASK));
+    }
+
+    @Override
+    public void clear() {
+        trainingVectors.clear();
     }
 }

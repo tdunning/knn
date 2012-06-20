@@ -134,14 +134,14 @@ public class ThreadedKmeansScaling {
         final int width = 30;
         final EuclideanDistanceMeasure distance = new EuclideanDistanceMeasure();
 
-        final StreamingKmeans.CentroidFactory psFactory = new StreamingKmeans.CentroidFactory() {
+        final StreamingKmeans.SearchFactory psFactory = new StreamingKmeans.SearchFactory() {
             @Override
             public UpdatableSearcher create() {
                 return new ProjectionSearch(width, distance, 4, 10);
             }
         };
 
-        final StreamingKmeans.CentroidFactory bruteFactory = new StreamingKmeans.CentroidFactory() {
+        final StreamingKmeans.SearchFactory bruteFactory = new StreamingKmeans.SearchFactory() {
             @Override
             public UpdatableSearcher create() {
                 return new ProjectionSearch(width, distance, 10, 20);
