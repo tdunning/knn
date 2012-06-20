@@ -135,7 +135,7 @@ public class ProjectionSearch2 {
         Iterator<Map.Entry> list2 = list1.iterator();
         List<Vector> candidates = Lists.newArrayList();
         while (list2.hasNext()) {
-        	Map.Entry entry = (Map.Entry)list2.next();
+        	Map.Entry entry = list2.next();
         	candidates.add((Vector)entry.getKey());
         } 
         Collections.sort(candidates, byQueryDistance(query));

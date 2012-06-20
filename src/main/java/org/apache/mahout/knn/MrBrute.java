@@ -94,7 +94,7 @@ public class MrBrute extends Configured implements Tool {
                 testingObs[i - 3] = Double.parseDouble(tokens[i]);
             }
             double sumTarget = 0;
-            double dist = 0.0;
+            double dist;
             for (double[] trainingObs : trainingList) {
                 cntr++;
                 double dist1 = 0;

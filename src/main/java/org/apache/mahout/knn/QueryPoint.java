@@ -94,7 +94,7 @@ public class QueryPoint {
 	}
 
 	public String toString() {
-    	return new StringBuilder("customerKey = ").append(customerKey).append(", clusterKey = ").append(String.valueOf(clusterKey)).append(", performance = ").append(String.valueOf(performance)).append(", dataPoints = ").append(dataPoints.toString()).toString();
-    	
+        return String.format("customerKey = %s, clusterKey = %d, performance = %f, dataPoints = %s",
+                customerKey, clusterKey, performance, dataPoints);
     }
 }

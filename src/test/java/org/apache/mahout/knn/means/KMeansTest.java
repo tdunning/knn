@@ -109,7 +109,7 @@ public class KMeansTest {
     	
     	for (Vector vector : list) {
     		double edist=2000;
-    		Vector centroidList [] = s.toArray(new Vector[0]);
+    		Vector centroidList [] = s.toArray(new Vector[s.size()]);
     		for (int i = 0; i < centroidList.length; i++) {
     			 mid1 = euclideanDistance(vector.viewPart(3,10),centroidList[i].viewPart(3,10));
     			 if (mid1 < edist) {
@@ -120,7 +120,7 @@ public class KMeansTest {
     		if (Math.random()< (edist/f) ) {
                 s.add(vector);
     			
-   				Vector [] vectors = s.toArray(new Vector[0]);
+   				Vector [] vectors = s.toArray(new Vector[s.size()]);
    				Vector compVector=new DenseVector(10);
    				compVector.assign(1000);
    				double minDist=1000;

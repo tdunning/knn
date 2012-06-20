@@ -29,7 +29,8 @@ import java.util.Set;
  */
 public class LocalitySensitiveHash extends UpdatableSearcher implements Iterable<MatrixSlice> {
     private static final int BITS = 64;
-    private static final long BITMASK = ((-1L) >>> (64 - BITS));
+    @SuppressWarnings("PointlessBitwiseExpression")
+    private static final long BITMASK = -1L >>> 64 - BITS;
 
     private DistanceMeasure distance;
     private Set<HashedVector> trainingVectors = Sets.newHashSet();

@@ -203,24 +203,23 @@ public class KMeans {
 	   	File dataFile = new File(CLUSTER_FILE_NAME);
     	FileWriter fileWriter=new FileWriter(dataFile);
     	StringBuilder stringBuilder = new StringBuilder();
-    	Iterator <MatrixSlice> iterator = clusters.iterator();
-    	while (iterator.hasNext()) {
-    		Centroid centroid = (Centroid) iterator.next().vector();
-    		int vectorSize=centroid.size();
-    		stringBuilder.append(centroid.getIndex()).append(",").append(centroid.getWeight()).append(",");
-    		for (int j=0; j < vectorSize; j++) {
-    			stringBuilder.append(String.valueOf(centroid.get(j))).append(",");
-    			
-    		}
-    		stringBuilder.setCharAt(stringBuilder.length()-1,'\n');
-    		fileWriter.write(stringBuilder.toString());
-    		stringBuilder.setLength(0);
-    	}
+        for (MatrixSlice cluster : clusters) {
+            Centroid centroid = (Centroid) cluster.vector();
+            int vectorSize = centroid.size();
+            stringBuilder.append(centroid.getIndex()).append(",").append(centroid.getWeight()).append(",");
+            for (int j = 0; j < vectorSize; j++) {
+                stringBuilder.append(String.valueOf(centroid.get(j))).append(",");
+
+            }
+            stringBuilder.setCharAt(stringBuilder.length() - 1, '\n');
+            fileWriter.write(stringBuilder.toString());
+            stringBuilder.setLength(0);
+        }
     	fileWriter.close();	
 	}
 
 	
-	public final static void main(String[] args) throws Exception { 
+	public static void main(String[] args) throws Exception {
     	
     	KMeans kMeans=new KMeans();
     	
@@ -249,10 +248,9 @@ public class KMeans {
     	kMeans.setClusters();
     	kMeans.writeClusters();
 
-    	Iterator<MatrixSlice> clusterIterator = clusters.iterator();
-    	while (clusterIterator.hasNext()) {
-    		System.out.println(clusterIterator.next().vector().toString());
-    		}
+        for (MatrixSlice cluster : clusters) {
+            System.out.println(cluster.vector().toString());
+        }
     	
     }
 

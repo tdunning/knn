@@ -35,14 +35,14 @@ public class OldProjectionSearchTest {
         final EuclideanDistanceMeasure distance = new EuclideanDistanceMeasure();
         for (int d =10; d < 11; d++) {
             ProjectionSearch ps = new ProjectionSearch(20, distance, d, 1);
-            List<Vector> ref = Lists.newArrayList();
+            List<WeightedVector> ref = Lists.newArrayList();
 
             final DoubleFunction random = Functions.random();
             for (int i = 0; i < 40000; i++) {
                 Vector v = new DenseVector(20);
                 v.assign(random);
                 ps.add(v, i);
-                ref.add(v);
+                ref.add(new WeightedVector(v, 1, i));
             }
             
             double sim = 0;
@@ -52,7 +52,7 @@ public class OldProjectionSearchTest {
             double D3 = 0;
             int searchSize = 400;
             int returnSize = 100;
-            List<Vector> randomNeighbor = Lists.newArrayList();
+            List<WeightedVector> randomNeighbor = Lists.newArrayList();
             randomNeighbor.addAll(ref.subList(0,returnSize));
             
             long runningTime = 0;
@@ -69,7 +69,7 @@ public class OldProjectionSearchTest {
                 };
                 
                 Collections.sort(ref, queryOrder);
-                List<Vector> trueNeighbor = ref.subList(0,returnSize);
+                List<WeightedVector> trueNeighbor = ref.subList(0,returnSize);
 
                 long t1 = System.nanoTime();
                 ps.setSearchSize(searchSize);
@@ -78,8 +78,8 @@ public class OldProjectionSearchTest {
                 runningTime = runningTime + t2 - t1;
                 
                 List<WeightedVector> proxyNeighbor = r.subList(0, returnSize);
-                List<Vector> intersection1 = ListUtils.intersection(trueNeighbor, proxyNeighbor);
-                List<Vector> union1 = ListUtils.sum(trueNeighbor, proxyNeighbor);
+                List<WeightedVector> intersection1 = ListUtils.intersection(trueNeighbor, proxyNeighbor);
+                List<WeightedVector> union1 = ListUtils.sum(trueNeighbor, proxyNeighbor);
                 // double jaccardSim = intersection1.size() / (double)union1.size();  
                 // sim += jaccardSim;
                 sim += intersection1.size() / (double)returnSize;
