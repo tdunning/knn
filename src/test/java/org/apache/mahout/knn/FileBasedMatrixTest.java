@@ -34,9 +34,41 @@ import static junit.framework.Assert.assertEquals;
 import static org.junit.Assume.assumeNotNull;
 
 public class FileBasedMatrixTest {
+    // 10 million rows x 40 columns x 8 bytes = 3.2GB of data
+    // we need >2GB to stress the file based matrix implementation
+    private static final int ROWS = 10 * 1000 * 1000;
+    private static final int COLUMNS = 40;
 
-    private static final int ROWS = 20 * 1000 * 1000;
-    private static final int COLUMNS = 30;
+    @Test
+    public void testBigMatrix() throws IOException {
+        // only run this test if -DrunSlowTests is used.  Also requires 4GB or more of heap.
+        assumeNotNull(System.getProperty("runSlowTests"));
+
+        Matrix m0 = new SparseRowMatrix(ROWS, COLUMNS);
+        Random gen = new Random(1);
+        for (int i = 0; i < 1000; i++) {
+            m0.set(gen.nextInt(ROWS), gen.nextInt(COLUMNS), matrixValue(i));
+        }
+        final File f = File.createTempFile("foo", ".m");
+        f.deleteOnExit();
+        System.out.printf("Starting to write to %s\n", f.getAbsolutePath());
+        FileBasedMatrix.writeMatrix(f, m0);
+        System.out.printf("done\n");
+        System.out.printf("File is %.1f MB\n", f.length() / 1e6);
+
+        FileBasedMatrix m1 = new FileBasedMatrix(ROWS, COLUMNS);
+        System.out.printf("Starting read\n");
+        m1.setData(f, false);
+        gen = new Random(1);
+        for (int i = 0; i < 1000; i++) {
+            assertEquals(matrixValue(i), m1.get(gen.nextInt(ROWS), gen.nextInt(COLUMNS)), 0.0);
+        }
+        System.out.printf("done\n");
+    }
+
+    private int matrixValue(int i) {
+        return (i * 88513) % 10000;
+    }
 
     @Test
     public void testSetData() throws IOException {
@@ -48,7 +80,6 @@ public class FileBasedMatrixTest {
         for (MatrixSlice row : m0) {
             row.vector().assign(gen.sample());
         }
-
         FileBasedMatrix.writeMatrix(f, m0);
 
         FileBasedMatrix m = new FileBasedMatrix(100000, 30);
@@ -59,27 +90,6 @@ public class FileBasedMatrixTest {
         int i = 0;
         for (MatrixSlice row : m) {
             assertEquals(0, row.vector().minus(m0.viewRow(i++)).norm(1), 1e-8);
-        }
-    }
-
-    @Test
-    public void testBigMatrix() throws IOException {
-        assumeNotNull(System.getProperty("runSlowTests"));
-
-        Matrix m0 = new SparseRowMatrix(ROWS, COLUMNS);
-        Random gen = new Random(1);
-        for (int i = 0; i < 1000; i++) {
-            m0.set(gen.nextInt(ROWS), gen.nextInt(COLUMNS), (i * 88513) % 10000);
-        }
-        final File f = File.createTempFile("foo", ".m");
-        f.deleteOnExit();
-        FileBasedMatrix.writeMatrix(f, m0);
-
-        FileBasedMatrix m1 = new FileBasedMatrix(ROWS, COLUMNS);
-        m1.setData(f, false);
-        gen = new Random(1);
-        for (int i = 0; i < 1000; i++) {
-            assertEquals((i * 88513) % 10000.0, m1.get(gen.nextInt(ROWS), gen.nextInt(COLUMNS)), 0.0);
         }
     }
 }
