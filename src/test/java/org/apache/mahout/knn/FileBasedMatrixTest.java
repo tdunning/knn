@@ -23,7 +23,6 @@ import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.SparseRowMatrix;
 import org.apache.mahout.math.function.Functions;
-import org.junit.Assume;
 import org.junit.Test;
 
 import java.io.File;
