@@ -1,4 +1,4 @@
-package org.apache.mahout.knn.means;
+package org.apache.mahout.knn.legacy;
 
 import com.google.common.collect.Sets;
 import org.apache.mahout.math.DenseVector;

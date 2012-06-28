@@ -1,38 +1,26 @@
-package org.apache.mahout.knn.means;
+package org.apache.mahout.knn.legacy;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.Closeable;
 import java.io.IOException;
-import java.io.FileWriter;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Hashtable;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Random;
-import java.util.PriorityQueue;
 import java.util.Date;
-import java.util.Set;
-import java.util.TreeMap;
-
-import static java.lang.Math.pow;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.*;
-import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Mapper;
 import org.apache.hadoop.mapred.MapReduceBase;
 import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.Reducer;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapred.TextInputFormat;
@@ -41,12 +29,8 @@ import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
 import org.apache.mahout.knn.Centroid;
-import org.apache.mahout.knn.WeightedVector;
-import org.apache.mahout.knn.QueryPoint;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
-import org.apache.mahout.math.function.DoubleFunction;
-import org.apache.mahout.math.function.Functions;
 
 public class MapRKMeansQueryTest extends Configured implements Tool  { 
 	

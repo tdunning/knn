@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.knn.search;
+package org.apache.mahout.knn;
 
 import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.math.MatrixSlice;

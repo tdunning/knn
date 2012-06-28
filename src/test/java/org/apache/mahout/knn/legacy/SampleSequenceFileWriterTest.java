@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.knn;
+package org.apache.mahout.knn.legacy;
 
+import org.apache.mahout.knn.legacy.SampleSequenceFileWriter;
 import org.apache.mahout.math.Vector;
 import org.junit.Assert;
 import org.junit.Test;

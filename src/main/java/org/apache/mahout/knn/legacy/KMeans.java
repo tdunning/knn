@@ -1,4 +1,4 @@
-package org.apache.mahout.knn.means;
+package org.apache.mahout.knn.legacy;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -7,7 +7,6 @@ import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
@@ -16,11 +15,10 @@ import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.common.distance.SquaredEuclideanDistanceMeasure;
 import org.apache.mahout.knn.search.Brute;
 import org.apache.mahout.knn.Centroid;
-import org.apache.mahout.knn.CustomerVector;
 import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.knn.search.ProjectionSearch;
-import org.apache.mahout.knn.search.Searcher;
-import org.apache.mahout.knn.search.UpdatableSearcher;
+import org.apache.mahout.knn.Searcher;
+import org.apache.mahout.knn.UpdatableSearcher;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Matrix;

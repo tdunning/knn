@@ -20,6 +20,8 @@ package org.apache.mahout.knn.search;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.apache.mahout.common.RandomUtils;
+import org.apache.mahout.knn.Searcher;
+import org.apache.mahout.knn.UpdatableSearcher;
 import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.knn.generate.MultiNormal;
 import org.apache.mahout.math.DenseMatrix;

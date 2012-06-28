@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.knn.search;
+package org.apache.mahout.knn.legacy;
 
 import com.google.common.collect.Lists;
 import org.apache.commons.collections.ListUtils;
@@ -23,6 +23,7 @@ import org.apache.commons.collections.ListUtils;
 import com.google.common.collect.Ordering;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.apache.mahout.knn.WeightedVector;
+import org.apache.mahout.knn.search.ProjectionSearch;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.function.DoubleFunction;

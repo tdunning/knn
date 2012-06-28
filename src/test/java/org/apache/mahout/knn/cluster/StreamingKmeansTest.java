@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.knn.means;
+package org.apache.mahout.knn.cluster;
 
 import com.google.common.collect.Lists;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
+import org.apache.mahout.knn.Searcher;
+import org.apache.mahout.knn.UpdatableSearcher;
 import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.knn.generate.MultiNormal;
-import org.apache.mahout.knn.lsh.LocalitySensitiveHash;
+import org.apache.mahout.knn.search.LocalitySensitiveHash;
 import org.apache.mahout.knn.search.ProjectionSearch;
-import org.apache.mahout.knn.search.Searcher;
-import org.apache.mahout.knn.search.UpdatableSearcher;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.MatrixSlice;
@@ -48,7 +48,7 @@ public class StreamingKmeansTest {
     }
 
     @Test
-    public void testClustering1() {
+    public void testClustering() {
         // construct data samplers centered on the corners of a unit cube
         Matrix mean = new DenseMatrix(8, 3);
         List<MultiNormal> rowSamplers = Lists.newArrayList();
@@ -58,7 +58,7 @@ public class StreamingKmeansTest {
         }
 
         // sample a bunch of data points
-        Matrix data = new DenseMatrix(10000, 3);
+        Matrix data = new DenseMatrix(100000, 3);
         for (MatrixSlice row : data) {
             row.vector().assign(rowSamplers.get(row.index() % 8).sample());
         }
@@ -71,7 +71,7 @@ public class StreamingKmeansTest {
                 return new ProjectionSearch(3, distance, 4, 10);
             }
         });
-        clusterCheck(mean, "k-means", data, new StreamingKmeans.SearchFactory() {
+        clusterCheck(mean, "lsh", data, new StreamingKmeans.SearchFactory() {
             @Override
             public UpdatableSearcher create() {
                 return new LocalitySensitiveHash(3, distance, 10);

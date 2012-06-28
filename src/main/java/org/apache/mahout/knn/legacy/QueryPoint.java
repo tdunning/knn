@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.knn;
+package org.apache.mahout.knn.legacy;
 
 import org.apache.mahout.math.Vector;
 

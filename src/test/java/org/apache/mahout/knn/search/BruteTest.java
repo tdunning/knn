@@ -18,6 +18,7 @@
 package org.apache.mahout.knn.search;
 
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
+import org.apache.mahout.knn.UpdatableSearcher;
 import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.Matrix;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.knn.search;
+package org.apache.mahout.knn.legacy;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;

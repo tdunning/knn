@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.knn.means;
+package org.apache.mahout.knn.cluster;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.apache.mahout.common.distance.DistanceMeasure;
-import org.apache.mahout.knn.search.Searcher;
+import org.apache.mahout.knn.Searcher;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.MatrixSlice;

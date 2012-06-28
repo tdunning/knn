@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.knn;
+package org.apache.mahout.knn.legacy;
 
 import com.google.common.collect.Lists;
 import org.apache.hadoop.conf.Configuration;

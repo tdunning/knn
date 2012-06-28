@@ -25,6 +25,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 import org.apache.mahout.common.distance.DistanceMeasure;
+import org.apache.mahout.knn.UpdatableSearcher;
 import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.MatrixSlice;
@@ -34,7 +35,6 @@ import org.apache.mahout.math.function.Functions;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.TreeSet;

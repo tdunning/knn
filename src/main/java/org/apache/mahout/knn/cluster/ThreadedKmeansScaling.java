@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.knn.means;
+package org.apache.mahout.knn.cluster;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -28,8 +28,8 @@ import org.apache.mahout.knn.generate.MultiNormal;
 import org.apache.mahout.knn.generate.Sampler;
 import org.apache.mahout.knn.search.Brute;
 import org.apache.mahout.knn.search.ProjectionSearch;
-import org.apache.mahout.knn.search.Searcher;
-import org.apache.mahout.knn.search.UpdatableSearcher;
+import org.apache.mahout.knn.Searcher;
+import org.apache.mahout.knn.UpdatableSearcher;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Matrix;

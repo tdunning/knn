@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.knn.search;
+package org.apache.mahout.knn.legacy;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
@@ -25,6 +25,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Maps;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.knn.WeightedVector;
+import org.apache.mahout.knn.UpdatableSearcher;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.Vector;
@@ -39,9 +40,13 @@ import java.util.TreeSet;
 import java.util.Map;
 
 /**
- * Does approximate nearest neighbor dudes search by projecting the data.
+ * Does approximate nearest neighbor search by projecting the data.
+ *
+ * Appears to cause problems with the kmeans algorithms because the vectors returned are copies rather than
+ * the original vectors (or some such)
  */
-public class ProjectionSearch3 extends Searcher {
+@Deprecated
+public class ProjectionSearch3 extends UpdatableSearcher implements Iterable<MatrixSlice> {
     private final List<TreeSet<WeightedVector>> vectors;
 
     private DistanceMeasure distance;
@@ -83,7 +88,7 @@ public class ProjectionSearch3 extends Searcher {
         // add to each projection separately
         Iterator<Vector> projections = basis.iterator();
         for (TreeSet<WeightedVector> s : vectors) {
-            s.add(new WeightedVector(v, projections.next(), index));
+            s.add(WeightedVector.project(v, projections.next(), index));
         }
     }
 
@@ -147,7 +152,10 @@ public class ProjectionSearch3 extends Searcher {
         return r.subList(0, n);
     }
 
-    @Override
+    /**
+     * Returns the number of vectors that we can search
+     * @return  The number of vectors added to the search so far.
+     */
     public int size() {
         return vectors.get(0).size();
     }
@@ -162,6 +170,29 @@ public class ProjectionSearch3 extends Searcher {
         this.searchSize = searchSize;
     }
 
+    public boolean remove(Vector vector) {
+        List<WeightedVector> x = search(vector, 1);
+        if (x.get(0).getWeight() < 1e-7) {
+            Iterator<Vector> basisVectors = basis.iterator();
+            for (TreeSet<WeightedVector> projection : vectors) {
+                WeightedVector v = new WeightedVector(vector, basisVectors.next(), -1);
+                boolean r = projection.remove(v);
+                if (!r) {
+                    throw new RuntimeException("Internal inconsistency in ProjectionSearch");
+                }
+            }
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    @Override
+    public void clear() {
+        for (TreeSet<WeightedVector> set : vectors) {
+            set.clear();
+        }
+    }
 
     @Override
     public Iterator<MatrixSlice> iterator() {

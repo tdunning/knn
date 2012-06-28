@@ -18,6 +18,8 @@
 package org.apache.mahout.knn.search;
 
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
+import org.apache.mahout.knn.Searcher;
+import org.apache.mahout.knn.legacy.ProjectionSearch3;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.MatrixSlice;
 import org.junit.BeforeClass;

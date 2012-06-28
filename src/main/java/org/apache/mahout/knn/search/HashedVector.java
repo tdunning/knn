@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.knn.lsh;
+package org.apache.mahout.knn.search;
 
 import org.apache.mahout.knn.DelegatingVector;
 import org.apache.mahout.math.Matrix;

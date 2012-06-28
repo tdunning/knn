@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.knn.means;
+package org.apache.mahout.knn.legacy;
 
 import org.apache.mahout.knn.Centroid;
-import org.apache.mahout.knn.QueryPoint;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 
