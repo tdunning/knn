@@ -124,7 +124,9 @@ Figure \ref{projection-probability} shows how the probability of finding the nea
 \end{figure}
 On the limited number of real data sets that we have examined we have observed that projection search seems to find the nearest neighbor more accurately than the experiments shown in Figure \ref{projection-probability} would indicate.
 \subsection{Sequential Clustering Algorithm}
-The sequential form of the streaming $k$-means algorithm uses the function {\tt cluster} which passes over the observations $x_1 \ldots x_n$  to form a set of weighted cluster centroids $C = \left\lbrace c_1 \ldots c_k\right\rbrace$.  The observations are assumed to be structures containing a weight $w$ and a vector position $r$.  Normally, the weights for all observations is set to $1$.  As the observations are processed, the size of the set of centroids found so far will increase so that it will eventually exceed a limit $\kappa$ which is either set based on the number of points seen so far or a user-provided target.  When the size exceeds $\kappa$, the centroids themselves are clustered using the same logic but further recursion is prevented.  If the recursive clustering is successful in substantially decreasing the number of centroids, then processing continues.  If not, the distance cutoff is increased by a factor $\beta$ which is typically set to a value of $1.25$ to $1.5$.  Increasing the distance cutoff $f$ makes it less likely that observations will be added to $C$ as new clusters and thus makes it take longer for $|C|$ to reach $\kappa$.  Increasing $f$ also makes it more likely that the recursive clustering will substantially decrease the number of centroids.
+The sequential form of the streaming $k$-means algorithm uses the function {\tt cluster} which passes over the observations $x_1 \ldots x_n$  to form a set of weighted cluster centroids $C = \left\lbrace c_1 \ldots c_k\right\rbrace$.  The observations are assumed to be structures containing a weight $w$ and a vector position $r$.  Normally, the weights for all observations is set to $1$.  As the observations are processed, the size of the set of centroids found so far will increase so that it will eventually exceed a limit $\kappa$.  When the size exceeds $\kappa$, the centroids themselves are clustered using the same logic without deeper further recursion.  If the recursive clustering is successful in substantially decreasing the number of centroids, then processing continues.  If not, the distance cutoff is increased by a factor $\beta$ which is typically set to a value of $1.25$ to $1.5$.  Increasing the distance cutoff $f$ makes it less likely that observations will be added to $C$ as new clusters and thus makes it take longer for $|C|$ to reach $\kappa$.  Increasing $f$ also makes it more likely that the recursive clustering will substantially decrease the number of centroids.  
+
+The threshold $\kappa$ is set to the maximum of a user-defined limit $\kappa_0$ or a slow-growing function of the number of points seen so far.  If the ultimate goal of the clustering is to generate $k$ clusters, it can be shown that keeping $\kappa = k \log n$ clusters in the on-line scan is sufficient to get good accuracy in the final clustering step.
 
 \begin{algorithm}[H]
 \SetNoFillComment
@@ -145,7 +147,7 @@ $n = x_1[w]$ \\
        $c[r] \Leftarrow\frac{c[w] c[r] + x_i[w] x_i[r]} { c[w] + x_i[w]} $\\
        $c[w] \Leftarrow c[w] + x_i[w]$
    }
-   $\kappa \Leftarrow \min(\kappa_0, 10 \log n)$ \\
+   $\kappa \Leftarrow \min(\kappa_0, k \log n)$ \\
    \If {$|C| > \kappa$ and $d = 0$} {
       $k = |C|$ \\
       $C \Leftarrow \mathtt {cluster}( C, f, \kappa, d+1 )$ \\
@@ -168,14 +170,65 @@ The map-reduce implementation of streaming $k$-means is straightforward.  The fi
 \begin{algorithm}[H]
 \SetNoFillComment
 \KwIn{distance cutoffs and centroids from each mapper $\lbrace (f_1, C_1) \ldots (f_r, C_r) \rbrace$, 
-target number of centroids $\kappa_0$ }
-\KwOut{weighted centroids $ (w_i, c_i) $ where $i=1\ldots k$} 
+target final number of centroids $k$ }
+\KwOut{weighted centroids $ (w_i, c_i) $ where $i=1\ldots \kappa_0$} 
 $f = \min_i f_i$ \\
 $n = \sum_i C_i[w]$\\
-$\kappa = \max\left(\kappa_0, 10 \log n \right)$\\
+$\kappa = \max\left(\kappa_0, k \log n \right)$\\
 \Return $ \mathtt {cluster}( \bigcup_i C_i, f, \kappa, 0)$\\
 \caption{The {\tt ClusterReducer} function}
 \end{algorithm}
+
+In some cases, the {\tt ClusterReducer} function will simply perform a union of the mapper outputs.
+
+\subsection{Final Clustering}
+The result of scanning the data is a set of centroids $C$ that is much larger than the final desired number of clusters $k$ but should be small enough to fit into memory.  These centroids are weighted according to the number of points that contributed to them during the initial streaming phase of the clustering.  The centroids $C$ together with their provide an approximation of the distribution of the original data of sufficient quality that clustering $C$ will provide us with a good approximation of a clustering of the original data.  Since $C$ is relatively small, this final clustering step is typically very fast compared to the cost of reading the original data.
+
+The Mahout implementation of the final clustering combines an initialization phase similar to that of $k$-means++ combined with a final tuneup pass based on ball $k$-means.  The initialization uses a probabilistic selection process to select $k$ members of $C$ that have good diversity without being subject to pathological behavior due to outliers.  The ball $k$-means pass adjusts each of the final $k$ clusters by recomputing the final cluster centroids based only on the closes members of the cluster rather than all of the members of the cluster.
+\begin{algorithm}[H]
+\SetNoFillComment
+\KwIn{set $C$ of weighted centroids from first pass, 
+target number of final clusters $k$ }
+\KwOut{set $S$ of initial centroids of final clusters} 
+$S = \emptyset$ \\
+\ForEach{$c_i \in C$} {
+$ d_i = \infty $ 
+}
+\While {$|S| < |C|$} {
+sample $s_{new} \sim D$ \\
+$S = S \cup s_{new}$ \\
+\ForEach {$c_i \in C$} {
+$d_i = \min (d_i , | s_{new} - c_i |)$
+}
+}
+\Return $ S $\\
+\caption{Final pass initialization}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\SetNoFillComment
+\KwIn{set $C$ of weighted centroids from first pass, 
+set $S$ of $k$ centroids }
+\KwOut{set $S$ of adjusted centroids of final clusters} 
+\ForEach{$c_i \in C$} {
+$ n_i = \argmin_j | c_i - s_j | $
+}
+\ForEach{$s_j \in S$} {
+$t_j = \lbrace c_i \mid n_i = j \rbrace $ \\
+$x_j = \mathrm{median} | t_j - s_j | $\\
+$s_j = \mathrm{mean} \lbrace x_j \mid x_j > | t_j - s_j |   \rbrace$
+}
+\While {$|S| < |C|$} {
+sample $s_{new} \sim D$ \\
+$S = S \cup s_{new}$ \\
+\ForEach {$c_i \in C$} {
+$d_i = \min (d_i , | s_{new} - c_i |)$
+}
+}
+\Return $ S $\\
+\caption{Ball $k$-means}
+\end{algorithm}
+
 \section{Results}
 
 \subsection{Single Core and Multi-core Speeds}
