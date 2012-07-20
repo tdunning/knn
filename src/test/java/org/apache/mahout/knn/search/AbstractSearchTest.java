@@ -58,7 +58,7 @@ public abstract class AbstractSearchTest {
         Searcher s = getSearch(20);
         s.addAll(testData());
         assertEquals(Iterables.size(testData()), s.size());
-        
+
         for (Vector query : queries) {
             List<WeightedVector> r = s.search(query, 2);
             assertEquals("Distance has to be about zero", 0, r.get(0).getWeight(), 1e-6);
@@ -83,7 +83,7 @@ public abstract class AbstractSearchTest {
             assertTrue("Wrong answer must be further away", r.get(1).getWeight() > r.get(0).getWeight());
         }
     }
-    
+
     @Test
     public void testOrdering() {
         Matrix queries = new DenseMatrix(100, 20);
@@ -139,7 +139,7 @@ public abstract class AbstractSearchTest {
             List<WeightedVector> r = s.search(x.get(0), 1);
             assertTrue("Vector should be gone", r.get(0).getWeight() > 0);
             assertEquals("Previous second neighbor should be first", 0, r.get(0).minus(r0.get(1)).norm(1), 1e-8);
-            
+
             s.remove(x.get(1).getVector());
             assertEquals(size0 - 2, s.size());
 
