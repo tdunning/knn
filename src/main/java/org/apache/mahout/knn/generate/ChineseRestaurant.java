@@ -17,50 +17,93 @@
 
 package org.apache.mahout.knn.generate;
 
+import com.google.common.base.Preconditions;
 import org.apache.mahout.math.list.DoubleArrayList;
 
 import java.util.Random;
 
 /**
- * Sample from an infinite dimensional multinomial whose parameters
- * are sampled from a Dirichlet process with parameter alpha.
+ * /**
+ * Generates samples from a generalized Chinese restaurant process (or Pittman-Yor process).
+ *
+ * The number of values drawn exactly once will asymptotically be equal to the discount parameter
+ * as the total number of draws T increases without bound.  The number of unique values sampled will
+ * increase as O(alpha * log T) if discount = 0 or O(alpha * T^discount) for discount > 0.
  */
 public class ChineseRestaurant implements Sampler<Integer> {
     private double alpha;
     private double weight = 0;
+    private double discount = 0;
     private DoubleArrayList weights = new DoubleArrayList();
 
     private Random rand = new Random();
 
+    /**
+     * Constructs a Dirichlet process sampler.  This is done by setting discount = 0.
+     * @param alpha  The strength parameter for the Dirichlet process.
+     */
     public ChineseRestaurant(double alpha) {
+        this(alpha, 0);
+    }
+
+    /**
+     * Constructs a Pitman-Yor sampler.
+     *
+     * @param alpha     The strength parameter that drives the number of unique values as a function of draws.
+     * @param discount  The discount parameter that drives the percentage of values that occur once in a large sample.
+     */
+    public ChineseRestaurant(double alpha, double discount) {
+        Preconditions.checkArgument(alpha > 0);
+        Preconditions.checkArgument(discount >= 0 && discount <= 1);
         this.alpha = alpha;
+        this.discount = discount;
     }
 
     public Integer sample() {
-        double u = rand.nextDouble();
-        final double pNew;
-        pNew = alpha / (weight + alpha);
-
-        if (u >= 1 - pNew) {
-            weights.add(1);
-            weight++;
-            return weights.size() -1;
-        } else {
-            u = weight * u / (1 - pNew);
-            for (int j = 0; j < weights.size(); j++) {
-                if (u < weights.get(j)) {
-                    weights.set(j, weights.get(j) + 1);
-                    weight++;
-                    return j;
-                } else {
-                    u -= weights.get(j);
-                }
+        double u = rand.nextDouble() * (alpha + weight);
+        for (int j = 0; j < weights.size(); j++) {
+            // select existing options with probability (w_j - d) / (alpha + w)
+            if (u < weights.get(j) - discount) {
+                weights.set(j, weights.get(j) + 1);
+                weight++;
+                return j;
+            } else {
+                u -= weights.get(j) - discount;
             }
-            throw new RuntimeException("Can't happen!");
         }
+
+        // if no existing item selected, pick new item with probability (alpha - d*t) / (alpha + w)
+        // where t is number of pre-existing cases
+        weights.add(1);
+        weight++;
+        return weights.size() - 1;
     }
 
+    /**
+     * @return the number of unique values that have been returned.
+     */
     public int size() {
         return weights.size();
+    }
+
+    /**
+     * @return the number draws so far.
+     */
+    public int count() {
+        return (int) weight;
+    }
+
+    /**
+     * @param j Which value to test.
+     * @return  The number of times that j has been returned so far.
+     */
+    public int count(int j) {
+        Preconditions.checkArgument(j >= 0);
+
+        if (j < weights.size()) {
+            return (int) weights.get(j);
+        } else {
+            return 0;
+        }
     }
 }
