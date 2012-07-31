@@ -66,7 +66,7 @@ public class Centroid extends WeightedVector {
                 return (weight * v + w * v1) / totalWeight;
             }
         });
-        setWeight(weight + w);
+        setWeight(totalWeight);
     }
 
     /**

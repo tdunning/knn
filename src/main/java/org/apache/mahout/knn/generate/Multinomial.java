@@ -19,18 +19,21 @@ package org.apache.mahout.knn.generate;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multiset;
 import org.apache.mahout.common.RandomUtils;
 
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
 /**
  * Samples from a multinomial distribution using a fast tree algorithm.
  */
-public class Multinomial<T> implements Sampler<T> {
+public class Multinomial<T> implements Sampler<T>, Iterable<T> {
     private SearchTree<T> tree;
     private final Random rand;
     private static final double EPSILON = 1e-10;
@@ -57,17 +60,17 @@ public class Multinomial<T> implements Sampler<T> {
         // now convert to cumulative weights to help with encoding as a tree
         double sum = 0;
         for (WeightedThing<T> thing : things) {
-            final double w = thing.weight;
+            final double w = thing.getWeight();
             sum += w;
             if (sum > 1) {
                 // only can happen with round-off errors.  Since we add numbers up smallest
                 // first, this should be a very minor probability.
                 sum = 1;
             }
-            thing.weight = sum;
+            thing.setWeight(sum);
         }
         // avoid round-off errors
-        things.get(things.size() - 1).weight = 1;
+        things.get(things.size() - 1).setWeight(1);
 
         // this allows us to build a tree that will help us sample fast
         tree = buildTree(0, 1, things, width);
@@ -84,27 +87,27 @@ public class Multinomial<T> implements Sampler<T> {
      */
     private SearchTree<T> buildTree(double low, double high, List<WeightedThing<T>> things, int width) {
         Preconditions.checkArgument(things.size() > 0, "Can't construct a tree with nothing");
-        Preconditions.checkArgument(low <= things.get(0).weight, "First element is outside outside of correct range");
-        Preconditions.checkArgument(high <= things.get(things.size() - 1).weight, "Last element is outside of correct range");
+        Preconditions.checkArgument(low <= things.get(0).getWeight(), "First element is outside outside of correct range");
+        Preconditions.checkArgument(high <= things.get(things.size() - 1).getWeight(), "Last element is outside of correct range");
 
         if (things.size() == 1) {
-            return new Leaf<T>(things.get(0).value);
+            return new Leaf<T>(things.get(0).getValue());
         } else if (things.size() == 2) {
             final WeightedThing<T> t0 = things.get(0);
             final WeightedThing<T> t1 = things.get(1);
-            return new Triplet<T>(ImmutableList.of(t0.value, t1.value), t0.weight, high + 1);
+            return new Triplet<T>(ImmutableList.of(t0.getValue(), t1.getValue()), t0.getWeight(), high + 1);
         } else if (things.size() == 3) {
             final WeightedThing<T> t0 = things.get(0);
             final WeightedThing<T> t1 = things.get(1);
             final WeightedThing<T> t2 = things.get(2);
-            return new Triplet<T>(ImmutableList.of(t0.value, t1.value, t2.value), t0.weight, t1.weight);
+            return new Triplet<T>(ImmutableList.of(t0.getValue(), t1.getValue(), t2.getValue()), t0.getWeight(), t1.getWeight());
         } else if (things.size() <= width && high - low < EPSILON) {
             // these items are squeezed into such a small space that we really don't have to
             // worry about the details.  Thus we just give them all equal (and very small)
             // probabilities.
             Node<T> r = new Node<T>();
             for (WeightedThing<T> thing : things) {
-                r.add(new Leaf<T>(thing.value));
+                r.add(new Leaf<T>(thing.getValue()));
             }
             return r;
         } else {
@@ -118,7 +121,7 @@ public class Multinomial<T> implements Sampler<T> {
             for (int i = 0; i < width; i++) {
                 double cutoff = Math.min(1, low + step);
                 int top = base;
-                while (top < things.size() && things.get(top).weight < cutoff) {
+                while (top < things.size() && things.get(top).getWeight() < cutoff) {
                     top++;
                 }
                 r.add(buildTree(low, cutoff, things.subList(base, top + 1), width));
@@ -138,7 +141,12 @@ public class Multinomial<T> implements Sampler<T> {
         return tree.find(p);
     }
 
-    private static interface SearchTree<T> {
+    @Override
+    public Iterator<T> iterator() {
+        return tree.iterator();
+    }
+
+    private static interface SearchTree<T> extends Iterable<T> {
         T find(double p);
     }
 
@@ -167,6 +175,11 @@ public class Multinomial<T> implements Sampler<T> {
             }
             return children.get(slot).find(p);
         }
+
+        @Override
+        public Iterator<T> iterator() {
+            return Iterables.concat(children).iterator();
+        }
     }
 
     private static class Triplet<T> implements SearchTree<T> {
@@ -189,6 +202,11 @@ public class Multinomial<T> implements Sampler<T> {
                 return values.get(1);
             }
         }
+
+        @Override
+        public Iterator<T> iterator() {
+            return values.iterator();
+        }
     }
 
     private static class Leaf<T> implements SearchTree<T> {
@@ -200,6 +218,11 @@ public class Multinomial<T> implements Sampler<T> {
 
         public T find(double p) {
             return value;
+        }
+
+        @Override
+        public Iterator<T> iterator() {
+            return Iterators.singletonIterator(value);
         }
     }
 }

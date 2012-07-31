@@ -159,7 +159,7 @@ public class Brute extends UpdatableSearcher {
      * @param query     The query.
      * @param n         Number of results to return.
      * @param threads   Number of threads to use in searching.
-     * @return
+     * @return A list of result lists.
      */
     public List<List<WeightedVector>> search(Matrix query, final int n, int threads) {
         ExecutorService es = Executors.newFixedThreadPool(threads);

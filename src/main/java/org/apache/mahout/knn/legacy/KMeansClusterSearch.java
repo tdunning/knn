@@ -111,7 +111,7 @@ public class KMeansClusterSearch {
     		for (int i = 0; i < centroidListSize ; i++) {
     			centroid=centroidList.get(i);
     			tuple[0] = euclideanDistance(queryPoint.getDataPoints(),centroid.getVector());
-    			tuple[1] = centroid.getKey();
+    			tuple[1] = centroid.getIndex();
     			tuple[2] = centroid.getWeight();
     		}
     		
