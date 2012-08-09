@@ -54,7 +54,7 @@ public class PoissonSampler extends AbstractSamplerFunction {
                 steps.add(new WeightedThing<Integer>(i, pdf));
             }
             steps.add(new WeightedThing<Integer>(steps.size(), limit));
-            partial = new Multinomial<Integer>(20, steps);
+            partial = new Multinomial<Integer>(steps);
         }
         return partial.sample(u);
     }

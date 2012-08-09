@@ -18,211 +18,153 @@
 package org.apache.mahout.knn.generate;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multiset;
 import org.apache.mahout.common.RandomUtils;
+import org.apache.mahout.math.list.DoubleArrayList;
 
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 /**
- * Samples from a multinomial distribution using a fast tree algorithm.
+ * Multinomial sampler that allows updates to element probabilities.  The basic idea is that sampling is
+ * done by using a simple balanced tree.  Probabilities are kept in the tree so that we can navigate to
+ * any leaf in log N time.  Updates are simple because we can just propagate them upwards.
+ * <p/>
+ * In order to facilitate access by value, we maintain an additional map from value to tree node.
  */
-public class Multinomial<T> implements Sampler<T>, Iterable<T> {
-    private SearchTree<T> tree;
-    private final Random rand;
-    private static final double EPSILON = 1e-10;
+public class Multinomial<T> implements Sampler<T> {
+    // these lists use heap ordering.  Thus, the root is at location 1, first level children at 2 and 3, second level
+    // at 4, 5 and 6, 7.
+    private DoubleArrayList weight = new DoubleArrayList();
+    private List<T> values = Lists.newArrayList();
+    private Map<T, Integer> items = Maps.newHashMap();
+    private Random rand = RandomUtils.getRandom();
+
+    public Multinomial() {
+        weight.add(0);
+        values.add(null);
+    }
 
     public Multinomial(Multiset<T> counts, int width) {
+        this();
         Preconditions.checkArgument(counts.size() > 0, "Need some data to build sampler");
         rand = RandomUtils.getRandom();
-        List<WeightedThing<T>> things = Lists.newArrayList();
-        double n = counts.size();
         for (T t : counts.elementSet()) {
-            things.add(new WeightedThing<T>(t, counts.count(t) / n));
+            add(t, counts.count(t));
         }
-        init(width, things);
     }
 
-    public Multinomial(int width, Iterable<WeightedThing<T>> things) {
-        rand = RandomUtils.getRandom();
-        init(width, Lists.newArrayList(things));
-    }
-
-    private void init(int width, List<WeightedThing<T>> things) {
-        Collections.sort(things);
-
-        // now convert to cumulative weights to help with encoding as a tree
-        double sum = 0;
+    public Multinomial(Iterable<WeightedThing<T>> things) {
+        this();
         for (WeightedThing<T> thing : things) {
-            final double w = thing.getWeight();
-            sum += w;
-            if (sum > 1) {
-                // only can happen with round-off errors.  Since we add numbers up smallest
-                // first, this should be a very minor probability.
-                sum = 1;
-            }
-            thing.setWeight(sum);
+            add(thing.getValue(), thing.getWeight());
         }
-        // avoid round-off errors
-        things.get(things.size() - 1).setWeight(1);
-
-        // this allows us to build a tree that will help us sample fast
-        tree = buildTree(0, 1, things, width);
     }
 
-    /**
-     * Recursively builds a search tree.
-     *
-     * @param low    The low bound for the search for this tree
-     * @param high   The high bound for the search of this tree
-     * @param things A list of things to be included in this branch of the tree
-     * @param width  Branching factor for the tree
-     * @return A search tree which may be an interior node or a sub-tree.
-     */
-    private SearchTree<T> buildTree(double low, double high, List<WeightedThing<T>> things, int width) {
-        Preconditions.checkArgument(things.size() > 0, "Can't construct a tree with nothing");
-        Preconditions.checkArgument(low <= things.get(0).getWeight(), "First element is outside outside of correct range");
-        Preconditions.checkArgument(high <= things.get(things.size() - 1).getWeight(), "Last element is outside of correct range");
+    public void add(T value, double w) {
+        Preconditions.checkArgument(!items.containsKey(value));
 
-        if (things.size() == 1) {
-            return new Leaf<T>(things.get(0).getValue());
-        } else if (things.size() == 2) {
-            final WeightedThing<T> t0 = things.get(0);
-            final WeightedThing<T> t1 = things.get(1);
-            return new Triplet<T>(ImmutableList.of(t0.getValue(), t1.getValue()), t0.getWeight(), high + 1);
-        } else if (things.size() == 3) {
-            final WeightedThing<T> t0 = things.get(0);
-            final WeightedThing<T> t1 = things.get(1);
-            final WeightedThing<T> t2 = things.get(2);
-            return new Triplet<T>(ImmutableList.of(t0.getValue(), t1.getValue(), t2.getValue()), t0.getWeight(), t1.getWeight());
-        } else if (things.size() <= width && high - low < EPSILON) {
-            // these items are squeezed into such a small space that we really don't have to
-            // worry about the details.  Thus we just give them all equal (and very small)
-            // probabilities.
-            Node<T> r = new Node<T>();
-            for (WeightedThing<T> thing : things) {
-                r.add(new Leaf<T>(thing.getValue()));
-            }
-            return r;
+        int n = this.weight.size();
+        if (n == 1) {
+            weight.add(w);
+            values.add(value);
+            items.put(value, 1);
         } else {
-            // each sub-tree here will take a uniform chunk of probability space.
-            // if that chunk has only one element in it, that element will be a leaf
-            int base = 0;
-            Node<T> r = new Node<T>();
-            r.low = low;
-            r.high = high;
-            final double step = (high - low) / width;
-            for (int i = 0; i < width; i++) {
-                double cutoff = Math.min(1, low + step);
-                int top = base;
-                while (top < things.size() && things.get(top).getWeight() < cutoff) {
-                    top++;
-                }
-                r.add(buildTree(low, cutoff, things.subList(base, top + 1), width));
-                low = cutoff;
-                base = top;
+            // parent comes down
+            weight.add(weight.get(n / 2));
+            values.add(values.get(n / 2));
+            items.put(values.get(n / 2), n);
+            n++;
+
+            // new item goes in
+            items.put(value, n);
+            this.weight.add(w);
+            values.add(value);
+
+            // parents get incremented all the way to the root
+            while (n > 1) {
+                n /= 2;
+                this.weight.set(n, this.weight.get(n) + w);
             }
-            return r;
         }
     }
 
-    public T sample() {
-        final double p = rand.nextDouble();
-        return sample(p);
+    public double getWeight(T value) {
+        Preconditions.checkArgument(items.containsKey(value));
+        return weight.get(items.get(value));
     }
 
-    public T sample(double p) {
-        return tree.find(p);
+    public double getProbability(T value) {
+        Preconditions.checkArgument(items.containsKey(value));
+        return weight.get(items.get(value)) / weight.get(1);
+    }
+
+    public double getWeight() {
+        if (weight.size() > 1) {
+            return weight.get(1);
+        } else {
+            return 0;
+        }
+    }
+
+    public void delete(T value) {
+        set(value, 0);
+    }
+
+    public void set(T value, double newP) {
+        Preconditions.checkArgument(items.containsKey(value));
+        int n = items.get(value);
+        double oldP = weight.get(n);
+        while (n > 0) {
+            weight.set(n, weight.get(n) - oldP + newP);
+            n /= 2;
+        }
     }
 
     @Override
-    public Iterator<T> iterator() {
-        return tree.iterator();
+    public T sample() {
+        Preconditions.checkArgument(weight.size() > 0);
+        return sample(rand.nextDouble());
     }
 
-    private static interface SearchTree<T> extends Iterable<T> {
-        T find(double p);
-    }
+    public T sample(double u) {
+        u *= weight.get(1);
 
-    private static class Node<T> implements SearchTree<T> {
-        double low, high;
-        final List<SearchTree<T>> children;
-
-        public Node() {
-            children = Lists.newArrayList();
-        }
-
-        public void add(SearchTree<T> node) {
-            children.add(node);
-        }
-
-        public T find(double p) {
-            if (p < 0) {
-                p = 0;
-            }
-            if (p > 1) {
-                p = 1;
-            }
-            int slot = (int) ((p - low) / (high - low) * children.size());
-            if (slot == children.size()) {
-                slot = slot - 1;
-            }
-            return children.get(slot).find(p);
-        }
-
-        @Override
-        public Iterator<T> iterator() {
-            return Iterables.concat(children).iterator();
-        }
-    }
-
-    private static class Triplet<T> implements SearchTree<T> {
-        final double p1;
-        final double p2;
-        final List<T> values;
-
-        private Triplet(List<T> values, double p1, double p2) {
-            this.values = values;
-            this.p2 = p2;
-            this.p1 = p1;
-        }
-
-        public T find(double p) {
-            if (p < p1) {
-                return values.get(0);
-            } else if (p >= p2) {
-                return values.get(2);
+        int n = 1;
+        while (2 * n < weight.size()) {
+            // children are at 2n and 2n+1
+            double left = weight.get(2 * n);
+            if (u <= left) {
+                n = 2 * n;
             } else {
-                return values.get(1);
+                u -= left;
+                n = 2 * n + 1;
             }
         }
-
-        @Override
-        public Iterator<T> iterator() {
-            return values.iterator();
-        }
+        return values.get(n);
     }
 
-    private static class Leaf<T> implements SearchTree<T> {
-        final T value;
-
-        public Leaf(T value) {
-            this.value = value;
+    /**
+     * Exposed for testing only.  Returns a list of the leaf weights.  These are in an
+     * order such that probing just before and after the cumulative sum of these weights
+     * will touch every element of the tree twice and thus will make every possible left/right
+     * decision in navigating the tree.
+     */
+    List<Double> getWeights() {
+        List<Double> r = Lists.newArrayList();
+        int i = Integer.highestOneBit(weight.size());
+        while (i < weight.size()) {
+            r.add(weight.get(i));
+            i++;
         }
-
-        public T find(double p) {
-            return value;
+        i = i / 2;
+        while (i < Integer.highestOneBit(weight.size())) {
+            r.add(weight.get(i));
+            i++;
         }
-
-        @Override
-        public Iterator<T> iterator() {
-            return Iterators.singletonIterator(value);
-        }
+        return r;
     }
 }

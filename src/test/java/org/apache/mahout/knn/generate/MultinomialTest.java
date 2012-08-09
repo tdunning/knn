@@ -21,12 +21,14 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multiset;
+import junit.framework.Assert;
 import org.apache.mahout.common.RandomUtils;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -71,7 +73,7 @@ public class MultinomialTest {
 
         assertEquals(5, cnt.elementSet().size());
         for (String v : cnt.elementSet()) {
-            assertEquals(3, cnt.count(v));
+            assertEquals(3, cnt.count(v), 1.01);
         }
         assertTrue(cnt.contains(s.sample(1)));
         assertEquals(s.sample(1 - EPSILON), s.sample(1));
@@ -136,12 +138,111 @@ public class MultinomialTest {
         assertEquals(s0.sample(1), s2.sample(1));
 
         assertEquals(5, cnt.elementSet().size());
-        Map<String, Integer> ref = ImmutableMap.of("3", 36, "2", 18, "1", 8, "0", 18, "4", 70);
+        // regression test, really.  These values depend on the original seed and exact algorithm.
+        // the actual values should be within about 2 of these, however, almost regardless of seed
+        Map<String, Integer> ref = ImmutableMap.of("3", 35, "2", 18, "1", 9, "0", 16, "4", 72);
         for (String v : cnt.elementSet()) {
             assertEquals(ref.get(v).intValue(), cnt.count(v));
         }
 
         assertTrue(cnt.contains(s0.sample(1)));
         assertEquals(s0.sample(1 - EPSILON), s0.sample(1));
+    }
+
+    @Test
+    public void testInsert() {
+        Random rand = new Random();
+        Multinomial<Integer> table = new Multinomial<Integer>();
+
+        double[] p = new double[10];
+        for (int i = 0; i < 10; i++) {
+            p[i] = rand.nextDouble();
+            table.add(i, p[i]);
+        }
+
+        checkSelfConsistent(table);
+
+        for (int i = 0; i < 10; i++) {
+            Assert.assertEquals(p[i], table.getWeight(i), 0);
+        }
+    }
+
+    @Test
+    public void testDeleteAndUpdate() {
+        Random rand = new Random();
+        Multinomial<Integer> table = new Multinomial<Integer>();
+        assertEquals(0, table.getWeight(), 1e-9);
+
+        double total = 0;
+        double[] p = new double[10];
+        for (int i = 0; i < 10; i++) {
+            p[i] = rand.nextDouble();
+            table.add(i, p[i]);
+            total += p[i];
+            assertEquals(total, table.getWeight(), 1e-9);
+        }
+
+        assertEquals(total, table.getWeight(), 1e-9);
+
+        checkSelfConsistent(table);
+
+        double delta = p[7] + p[8];
+        table.delete(7);
+        p[7] = 0;
+
+        table.set(8, 0);
+        p[8] = 0;
+        total -= delta;
+
+        checkSelfConsistent(table);
+
+        assertEquals(total, table.getWeight(), 1e-9);
+        for (int i = 0; i < 10; i++) {
+            assertEquals(p[i], table.getWeight(i), 0);
+            assertEquals(p[i] / total, table.getProbability(i), 1e-10);
+        }
+
+        table.set(9, 5.1);
+        total -= p[9];
+        p[9] = 5.1;
+        total += 5.1;
+
+        assertEquals(total , table.getWeight(), 1e-9);
+        for (int i = 0; i < 10; i++) {
+            assertEquals(p[i], table.getWeight(i), 0);
+            assertEquals(p[i] / total, table.getProbability(i), 1e-10);
+        }
+
+        checkSelfConsistent(table);
+
+        for (int i = 0; i < 10; i++) {
+            Assert.assertEquals(p[i], table.getWeight(i), 0);
+        }
+    }
+
+    private void checkSelfConsistent(Multinomial<Integer> table) {
+        final List<Double> weights = table.getWeights();
+
+        double totalWeight = table.getWeight();
+
+        double p = 0;
+        int[] k = new int[10];
+        for (double weight : weights) {
+            if (weight > 0) {
+                if (p > 0) {
+                    k[table.sample(p - 1e-9)]++;
+                }
+                k[table.sample(p + 1e-9)]++;
+            }
+            p += weight / totalWeight;
+        }
+        k[table.sample(p - 1e-9)]++;
+        Assert.assertEquals(1, p, 1e-9);
+
+        for (int i = 0; i < 10; i++) {
+            if (table.getWeight(i) > 0) {
+                Assert.assertEquals(k[i], 2);
+            }
+        }
     }
 }

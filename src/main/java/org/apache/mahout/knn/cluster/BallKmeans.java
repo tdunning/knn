@@ -45,14 +45,15 @@ import java.util.Set;
  * <p/>
  * A good reference for this class of algorithms is "The Effectiveness of Lloyd-Type Methods for the k-Means Problem"
  * by Rafail Ostrovsky, Yuval Rabani, Leonard J. Schulman and Chaitanya Swamy.  The code here uses the seeding strategy
- * as described in section 4.1.1 of that paper and the ball k-means step as described in section 4.2.
+ * as described in section 4.1.1 of that paper and the ball k-means step as described in section 4.2.  We support
+ * multiple iterations in contrast to the algorithm described in the paper.
  */
-public class Kmeans {
+public class BallKmeans {
     private Searcher centroidFinder;
     private List<Centroid> clusters = Lists.newArrayList();
 
 
-    public Kmeans(int k, Iterable<MatrixSlice> data) {
+    public BallKmeans(int k, Iterable<MatrixSlice> data) {
         final int maxIterations = 20;
         DistanceMeasure metric = new EuclideanDistanceMeasure();
 
@@ -85,6 +86,7 @@ public class Kmeans {
      * @param data The data to select from.  These data should be WeightedVectors of some kind.
      */
     private void initializeSeeds(int k, Iterable<MatrixSlice> data) {
+        // ensure that we have at least a few rows.  The real value of n will be computed shortly.
         int n = 0;
         for (MatrixSlice row : data) {
             if (n > 3) break;
@@ -110,7 +112,7 @@ public class Kmeans {
             radius += l2.distance(row.vector(), center);
         }
 
-        // Find the first two seeds c_1 and c_2 as might be done in the 2-means clustering so that
+        // Find the first seed c_1 (and conceptually the second, c_2) as might be done in the 2-means clustering so that
         // the probability of selecting c_1 and c_2 is proportional to || c_1 - c_2 ||^2.  This is done
         // by first selecting c_1 with probability
         //
