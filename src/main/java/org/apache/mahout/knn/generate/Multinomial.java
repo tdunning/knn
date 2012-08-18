@@ -24,6 +24,7 @@ import com.google.common.collect.Multiset;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.math.list.DoubleArrayList;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -35,7 +36,7 @@ import java.util.Random;
  * <p/>
  * In order to facilitate access by value, we maintain an additional map from value to tree node.
  */
-public class Multinomial<T> implements Sampler<T> {
+public class Multinomial<T> implements Sampler<T>, Iterable<T> {
     // these lists use heap ordering.  Thus, the root is at location 1, first level children at 2 and 3, second level
     // at 4, 5 and 6, 7.
     private DoubleArrayList weight = new DoubleArrayList();
@@ -93,13 +94,19 @@ public class Multinomial<T> implements Sampler<T> {
     }
 
     public double getWeight(T value) {
-        Preconditions.checkArgument(items.containsKey(value));
-        return weight.get(items.get(value));
+        if (items.containsKey(value)) {
+            return weight.get(items.get(value));
+        } else {
+            return 0;
+        }
     }
 
     public double getProbability(T value) {
-        Preconditions.checkArgument(items.containsKey(value));
-        return weight.get(items.get(value)) / weight.get(1);
+        if (items.containsKey(value)) {
+            return weight.get(items.get(value)) / weight.get(1);
+        } else {
+            return 0;
+        }
     }
 
     public double getWeight() {
@@ -117,6 +124,11 @@ public class Multinomial<T> implements Sampler<T> {
     public void set(T value, double newP) {
         Preconditions.checkArgument(items.containsKey(value));
         int n = items.get(value);
+        if (newP <= 0) {
+            // this makes the iterator not see such an element even though we leave a phantom in the tree
+            // Leaving the phantom behind simplifies tree maintenance and testing, but isn't really necessary.
+            items.remove(value);
+        }
         double oldP = weight.get(n);
         while (n > 0) {
             weight.set(n, weight.get(n) - oldP + newP);
@@ -166,5 +178,10 @@ public class Multinomial<T> implements Sampler<T> {
             i++;
         }
         return r;
+    }
+
+    @Override
+    public Iterator<T> iterator() {
+        return items.keySet().iterator();
     }
 }

@@ -19,15 +19,13 @@ package org.apache.mahout.knn.cluster;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
-import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.apache.mahout.common.distance.SquaredEuclideanDistanceMeasure;
 import org.apache.mahout.knn.Centroid;
 import org.apache.mahout.knn.Searcher;
 import org.apache.mahout.knn.WeightedVector;
-import org.apache.mahout.knn.generate.WeightedThing;
+import org.apache.mahout.knn.generate.Multinomial;
 import org.apache.mahout.knn.search.Brute;
 import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.Vector;
@@ -35,8 +33,6 @@ import org.apache.mahout.math.function.DoubleDoubleFunction;
 import org.apache.mahout.math.function.Functions;
 
 import java.util.List;
-import java.util.Random;
-import java.util.Set;
 
 /**
  * Implements a ball k-means algorithm for weighted vectors with probabilistic seeding similar to k-means++.
@@ -105,6 +101,7 @@ public class BallKmeans {
         center.assign(Functions.div(n));
 
         // given the centroid, we can compute \Delta_1^2(X), the total squared distance for the data
+        // this accelerates seed selection
         double radius = 0;
         DistanceMeasure l2 = new SquaredEuclideanDistanceMeasure();
 
@@ -127,28 +124,20 @@ public class BallKmeans {
         // All subsequent seeds c_i (including c_2) can then be selected from the remaining points with probability
         // proportional to Pr(c_i == x_j) = min_{m < i} || c_m - x_j ||^2
 
-        WeightedVector c_1 = null;
-        Random rand = RandomUtils.getRandom();
-        double u = rand.nextDouble() * 2 * n * radius;
+        Multinomial<WeightedVector> seedSelector = new Multinomial<WeightedVector>();
         for (MatrixSlice row : data) {
             double p = radius + n * l2.distance(row.vector(), center);
-            u -= p;
-            if (u <= 1e-10) {
-                c_1 = (WeightedVector) row.vector();
-                break;
-            }
+            seedSelector.add((WeightedVector) row.vector(), p);
         }
-        Preconditions.checkArgument(c_1 != null, "Didn't select any c_1 value ... shouldn't be possible");
+        WeightedVector c_1 = seedSelector.sample();
 
         // Construct a set of weighted things which can be used for random selection.  Initial weights are
         // set to the squared distance from c_1
-        Set<WeightedThing<WeightedVector>> things = Sets.newHashSet();
         double totalWeight = 0;
         for (MatrixSlice row : data) {
             final WeightedVector v = (WeightedVector) row.vector();
             final double w = l2.distance(c_1, v) * v.getWeight();
-            things.add(new WeightedThing<WeightedVector>(v, w));
-            totalWeight += w;
+            seedSelector.set(v, w);
         }
 
         // From here, seeds are selected with probablity proportional to
@@ -162,31 +151,19 @@ public class BallKmeans {
         seeds.add(c_1);
         while (seeds.size() < k) {
             // select according to weights
-            u = rand.nextDouble() * totalWeight;
-            WeightedThing<WeightedVector> nextSeed = null;
-            for (WeightedThing<WeightedVector> thing : things) {
-                u -= thing.getWeight();
-                if (u <= 1e-10) {
-                    nextSeed = thing;
-                    break;
-                }
-            }
-            if (nextSeed == null) {
-                throw new RuntimeException("Can't happen");
-            }
 
-            seeds.add(nextSeed.getValue());
+            WeightedVector nextSeed = seedSelector.sample();
+
+            seeds.add(nextSeed);
 
             // don't select this one again
-            things.remove(nextSeed);
-            totalWeight -= nextSeed.getWeight();
+            seedSelector.set(nextSeed, 0);
 
             // now re-weight everything according to the minimum distance to a seed
-            for (WeightedThing<WeightedVector> thing : things) {
-                double newWeight = nextSeed.getValue().getWeight() * l2.distance(nextSeed.getValue(), thing.getValue());
-                if (newWeight < thing.getWeight()) {
-                    totalWeight -= thing.getWeight() - newWeight;
-                    thing.setWeight(newWeight);
+            for (WeightedVector s : seedSelector) {
+                double newWeight = nextSeed.getWeight() * l2.distance(nextSeed, s);
+                if (newWeight < seedSelector.getWeight(s)) {
+                    seedSelector.set(s, newWeight);
                 }
             }
         }
