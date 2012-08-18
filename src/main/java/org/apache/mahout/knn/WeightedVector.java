@@ -21,6 +21,8 @@ import org.apache.mahout.math.Vector;
 
 /**
  * Decorates a vector with a floating point weight and an index.
+ *
+ * Moved to Mahout math as part of MAHOUT-1059
  */
 public class WeightedVector extends DelegatingVector implements Comparable<WeightedVector> {
     private static final int INVALID_INDEX = -1;

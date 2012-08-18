@@ -21,6 +21,8 @@ import org.apache.mahout.math.function.DoubleFunction;
 
 /**
  * This shim allows samplers to be used to initialize vectors.
+ *
+ * Moved to Mahout math as part of MAHOUT-1059
  */
 public abstract class AbstractSamplerFunction implements Sampler<Double>, DoubleFunction {
   /**

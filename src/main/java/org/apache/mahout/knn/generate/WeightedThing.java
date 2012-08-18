@@ -19,6 +19,8 @@ package org.apache.mahout.knn.generate;
 
 /**
  * Handy for creating multinomial distributions of things.
+ *
+ * Moved to Mahout math as part of MAHOUT-1059
  */
 public class WeightedThing<T> implements Comparable<WeightedThing<T>> {
     private double weight;

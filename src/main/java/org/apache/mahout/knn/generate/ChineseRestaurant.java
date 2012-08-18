@@ -29,6 +29,8 @@ import java.util.Random;
  * The number of values drawn exactly once will asymptotically be equal to the discount parameter
  * as the total number of draws T increases without bound.  The number of unique values sampled will
  * increase as O(alpha * log T) if discount = 0 or O(alpha * T^discount) for discount > 0.
+ *
+ * Moved to Mahout math as part of MAHOUT-1059
  */
 public class ChineseRestaurant implements Sampler<Integer> {
     private double alpha;

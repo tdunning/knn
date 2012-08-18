@@ -28,6 +28,8 @@ import java.util.Iterator;
 /**
  * A delegating vector provides an easy way to decorate vectors with weights or id's and such while
  * keeping all of the Vector functionality.
+ *
+ * Moved to Mahout math as part of MAHOUT-1059
  */
 public class DelegatingVector implements Vector {
     protected Vector delegate;

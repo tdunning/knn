@@ -27,6 +27,8 @@ import java.util.Random;
 
 /**
  * Samples from a Poisson distribution.  Should probably not be used for lambda > 1000 or so.
+ *
+ * Moved to Mahout math as part of MAHOUT-1059
  */
 public class PoissonSampler extends AbstractSamplerFunction {
     private double limit = 1;

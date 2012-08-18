@@ -24,6 +24,8 @@ import java.util.Random;
  * values will have the same sequence of missing values.  Similarly, if two variables have
  * missing probabilities of p1 > p2, then all of the p2 missing values will also be missing for
  * p1.
+ *
+ * Moved to Mahout math as part of MAHOUT-1059
  */
 public class Missing<T> implements Sampler<T> {
   private final Random gen;

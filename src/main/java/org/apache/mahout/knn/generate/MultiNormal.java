@@ -28,6 +28,8 @@ import java.util.Random;
 
 /**
  * Samples from a multi-variate normal distribution.
+ *
+ * Moved to Mahout math as part of MAHOUT-1059
  */
 public class MultiNormal implements Sampler<Vector> {
     private final Random gen;

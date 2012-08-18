@@ -54,6 +54,8 @@ import java.util.Map;
  *   assumed to be multinomial. Probabilities are assigned to match the quantiles. </li>
  *   <li> all else are assumed continuous and are modelled using the Empirical generator</li>
  * </ul>
+ *
+ * Moved to Mahout math as part of MAHOUT-1059
  */
 public class SyntheticVariable extends AbstractSamplerFunction {
   private final Splitter onTabs = Splitter.on("\t");

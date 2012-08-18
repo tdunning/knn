@@ -19,6 +19,8 @@ package org.apache.mahout.knn.generate;
 
 /**
  * Samples from a generic type.
+ *
+ * Moved to Mahout math as part of MAHOUT-1059
  */
 public interface Sampler<T> {
   T sample();

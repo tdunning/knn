@@ -34,6 +34,8 @@ import java.util.Random;
  * Samples a "document" from an IndianBuffet process.
  *
  * See http://mlg.eng.cam.ac.uk/zoubin/talks/turin09.pdf for details
+ *
+ * Moved to Mahout math as part of MAHOUT-1059
  */
 public class IndianBuffet<T> implements Sampler<List<T>> {
     private final List<Integer> count = Lists.newArrayList();

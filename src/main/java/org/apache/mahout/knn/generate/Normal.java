@@ -21,6 +21,12 @@ import org.apache.mahout.common.RandomUtils;
 
 import java.util.Random;
 
+/**
+ * Samples from a 1D normal distribution.
+ *
+ *
+ * Moved to Mahout math as part of MAHOUT-1059
+ */
 public class Normal extends AbstractSamplerFunction {
     private final Random rand = RandomUtils.getRandom();
     private double mean = 0;

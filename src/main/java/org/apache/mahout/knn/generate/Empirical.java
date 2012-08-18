@@ -25,6 +25,8 @@ import java.util.Random;
 
 /**
  * Samples from an empirical cumulative distribution.
+ *
+ * Moved to Mahout math as part of MAHOUT-1059
  */
 public class Empirical extends AbstractSamplerFunction {
     private final Random gen;

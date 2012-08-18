@@ -35,6 +35,8 @@ import java.util.Random;
  * any leaf in log N time.  Updates are simple because we can just propagate them upwards.
  * <p/>
  * In order to facilitate access by value, we maintain an additional map from value to tree node.
+ *
+ * Moved to Mahout math as part of MAHOUT-1059
  */
 public class Multinomial<T> implements Sampler<T>, Iterable<T> {
     // these lists use heap ordering.  Thus, the root is at location 1, first level children at 2 and 3, second level

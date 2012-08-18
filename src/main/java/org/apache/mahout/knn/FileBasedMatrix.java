@@ -39,6 +39,8 @@ import java.util.List;
  * Provides a way to get data from a file and treat it as if it were a matrix, but avoids putting all that
  * data onto the Java heap.  Instead, the file is mapped into non-heap memory as a DoubleBuffer and we access
  * that instead.
+ *
+ * Moved to Mahout math as part of MAHOUT-1059
  */
 public class FileBasedMatrix extends AbstractMatrix {
     private int rowsPerBlock;
