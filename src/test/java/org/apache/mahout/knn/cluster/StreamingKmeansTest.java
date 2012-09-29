@@ -23,6 +23,7 @@ import org.apache.mahout.knn.Searcher;
 import org.apache.mahout.knn.UpdatableSearcher;
 import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.knn.generate.MultiNormal;
+import org.apache.mahout.knn.search.Brute;
 import org.apache.mahout.knn.search.LocalitySensitiveHash;
 import org.apache.mahout.knn.search.ProjectionSearch;
 import org.apache.mahout.math.DenseMatrix;
@@ -93,6 +94,20 @@ public class StreamingKmeansTest {
         }
         System.out.printf("%s\n%.2f for clustering\n%.1f us per row\n\n",
                 title, (t1 - t0) / 1000.0, (t1 - t0) / 1000.0 / data.rowSize() * 1e6);
+
+        // verify that the total weight of the centroids near each corner is correct
+        double[] w = new double[8];
+        Searcher trueFinder = new Brute(new EuclideanDistanceMeasure());
+        for (MatrixSlice trueCluster : mean) {
+            trueFinder.add(trueCluster.vector(), trueCluster.index());
+        }
+        for (MatrixSlice centroid : r) {
+            WeightedVector z = trueFinder.search(centroid.vector(), 1).get(0);
+            w[z.getIndex()] += ((WeightedVector) centroid.vector()).getWeight();
+        }
+        for (double v : w) {
+            assertEquals(12500, v, 0);
+        }
     }
 
     private double totalWeight(Iterable<MatrixSlice> data) {

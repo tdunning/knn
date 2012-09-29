@@ -29,9 +29,9 @@ import org.apache.mahout.knn.generate.Multinomial;
 import org.apache.mahout.knn.search.Brute;
 import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.Vector;
-import org.apache.mahout.math.function.DoubleDoubleFunction;
 import org.apache.mahout.math.function.Functions;
 
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -44,13 +44,11 @@ import java.util.List;
  * as described in section 4.1.1 of that paper and the ball k-means step as described in section 4.2.  We support
  * multiple iterations in contrast to the algorithm described in the paper.
  */
-public class BallKmeans {
+public class BallKmeans implements Iterable<Centroid> {
     private Searcher centroidFinder;
     private List<Centroid> clusters = Lists.newArrayList();
 
-
-    public BallKmeans(int k, Iterable<MatrixSlice> data) {
-        final int maxIterations = 20;
+    public BallKmeans(int k, Iterable<MatrixSlice> data, int maxIterations) {
         DistanceMeasure metric = new EuclideanDistanceMeasure();
 
         centroidFinder = new Brute(metric);
@@ -59,7 +57,7 @@ public class BallKmeans {
         initializeSeeds(k, data);
 
         // do k-means iterations with trimmed mean computation (aka ball k-means)
-        iterativeAssignment(data, maxIterations, 0.5);
+        iterativeAssignment(data, maxIterations, 0.9);
     }
 
     /**
@@ -86,6 +84,7 @@ public class BallKmeans {
         int n = 0;
         for (MatrixSlice row : data) {
             if (n > 3) break;
+            n++;
         }
         Preconditions.checkArgument(n >= 2, "Must have at least two data points to cluster sensibly");
 
@@ -93,7 +92,7 @@ public class BallKmeans {
         Vector center = data.iterator().next().vector().like();
         n = 0;
         for (MatrixSlice row : data) {
-            final WeightedVector v = (WeightedVector) row.vector();
+            WeightedVector v = asWeightedVector(row);
             final double w = v.getWeight();
             n += w;
             center.assign(v, Functions.plusMult(w));
@@ -126,16 +125,15 @@ public class BallKmeans {
 
         Multinomial<WeightedVector> seedSelector = new Multinomial<WeightedVector>();
         for (MatrixSlice row : data) {
-            double p = radius + n * l2.distance(row.vector(), center);
-            seedSelector.add((WeightedVector) row.vector(), p);
+            double p = (radius + n * l2.distance(row.vector(), center));
+            seedSelector.add(asWeightedVector(row), p);
         }
         WeightedVector c_1 = seedSelector.sample();
 
         // Construct a set of weighted things which can be used for random selection.  Initial weights are
         // set to the squared distance from c_1
-        double totalWeight = 0;
         for (MatrixSlice row : data) {
-            final WeightedVector v = (WeightedVector) row.vector();
+            final WeightedVector v = asWeightedVector(row);
             final double w = l2.distance(c_1, v) * v.getWeight();
             seedSelector.set(v, w);
         }
@@ -176,6 +174,16 @@ public class BallKmeans {
         }
     }
 
+    private WeightedVector asWeightedVector(MatrixSlice row) {
+        WeightedVector v;
+        if (row.vector() instanceof WeightedVector) {
+            v = (WeightedVector) row.vector();
+        }   else {
+            v = new WeightedVector(row.vector(), 1, row.index());
+        }
+        return v;
+    }
+
     /**
      * Examines the data and updates cluster centers to be the centroid of the nearest data points.  To
      * compute a new center for cluster c_i, we average all points that are closer than d_i * trimFraction
@@ -202,9 +210,10 @@ public class BallKmeans {
 
         for (int i = 0; i < maxIterations; i++) {
             // need to know how the closest other cluster for each cluster
+            d.clear();
             for (MatrixSlice center : centroidFinder) {
                 List<WeightedVector> nearest = centroidFinder.search(center.vector(), 2);
-                d.add(Math.sqrt(l2.distance(center.vector(), nearest.get(1))));
+                d.add(l2.distance(center.vector(), nearest.get(1)));
             }
 
             boolean changed = false;
@@ -220,7 +229,7 @@ public class BallKmeans {
 
             // pass over the data computing new centroids
             for (MatrixSlice row : data) {
-                while (assignments.size() < row.index()) {
+                while (assignments.size() <= row.index()) {
                     assignments.add(-1);
                 }
 
@@ -231,17 +240,8 @@ public class BallKmeans {
                 assignments.set(row.index(), closest.getIndex());
 
                 // only update if the data point is near enough
-                if (closest.getWeight() < d.get(closest.getIndex()) * trimFaction) {
-                    final Centroid c = newClusters.get(closest.getIndex());
-                    final double w1 = c.getWeight();
-                    final double w2 = ((WeightedVector) row.vector()).getWeight();
-                    c.assign(closest.getVector(), new DoubleDoubleFunction() {
-                        @Override
-                        public double apply(double x, double y) {
-                            return (w1 * x + w2 * y) / (w1 + w2);
-                        }
-                    });
-                    c.setWeight(w1 + w2);
+                if (true || closest.getWeight() < d.get(closest.getIndex()) * trimFaction) {
+                    newClusters.get(closest.getIndex()).update(asWeightedVector(row));
                 }
             }
 
@@ -255,5 +255,10 @@ public class BallKmeans {
                 centroidFinder.add(cluster, cluster.getIndex());
             }
         }
+    }
+
+    @Override
+    public Iterator<Centroid> iterator() {
+        return clusters.iterator();
     }
 }

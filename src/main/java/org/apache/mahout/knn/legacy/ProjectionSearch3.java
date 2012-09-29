@@ -170,7 +170,7 @@ public class ProjectionSearch3 extends UpdatableSearcher implements Iterable<Mat
         this.searchSize = searchSize;
     }
 
-    public boolean remove(Vector vector) {
+    public boolean remove(Vector vector, double epsilon) {
         List<WeightedVector> x = search(vector, 1);
         if (x.get(0).getWeight() < 1e-7) {
             Iterator<Vector> basisVectors = basis.iterator();
