@@ -19,6 +19,7 @@ package org.apache.mahout.knn.search;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import junit.framework.Assert;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.knn.Searcher;
 import org.apache.mahout.knn.UpdatableSearcher;
@@ -54,13 +55,33 @@ public abstract class AbstractSearchTest {
 
     @Test
     public void testExactMatch() {
-        List<WeightedVector> queries = subset(testData(), 100);
+        Iterable<MatrixSlice> data = testData();
+
+        final Iterable<MatrixSlice> batch1 = Iterables.limit(data, 300);
+        List<WeightedVector> queries = subset(batch1, 100);
         Searcher s = getSearch(20);
-        s.addAll(testData());
+
+        // adding the data in multiple batches triggers special code in some searchers
+        s.addAll(batch1);
+        assertEquals(300, s.size());
+
+        Vector q = Iterables.get(data, 0).vector();
+        List<WeightedVector> r = s.search(q, 2);
+        assertEquals(0, r.get(0).minus(q).norm(1), 1e-8);
+
+        final Iterable<MatrixSlice> batch2 = Iterables.limit(Iterables.skip(data, 300), 10);
+        s.addAll(batch2);
+        assertEquals(310, s.size());
+
+        q = Iterables.get(data, 302).vector();
+        r = s.search(q, 2);
+        assertEquals(0, r.get(0).minus(q).norm(1), 1e-8);
+
+        s.addAll(Iterables.skip(data, 310));
         assertEquals(Iterables.size(testData()), s.size());
 
         for (Vector query : queries) {
-            List<WeightedVector> r = s.search(query, 2);
+            r = s.search(query, 2);
             assertEquals("Distance has to be about zero", 0, r.get(0).getWeight(), 1e-6);
             assertEquals("Answer must be substantially the same as query", 0, r.get(0).minus(query).norm(1), 1e-8);
             assertTrue("Wrong answer must have non-zero distance", r.get(1).getWeight() > r.get(0).getWeight());
@@ -145,6 +166,12 @@ public abstract class AbstractSearchTest {
 
             r = s.search(x.get(1), 1);
             assertTrue("Vector should be gone", r.get(0).getWeight() > 0);
+
+            // vectors don't show up in iterator
+            for (MatrixSlice v : s) {
+                Assert.assertTrue(x.get(0).minus(v.vector()).norm(1) > 1e-8);
+                Assert.assertTrue(x.get(1).minus(v.vector()).norm(1) > 1e-8);
+            }
         } else {
             try {
                 List<WeightedVector> x = subset(s, 2);
