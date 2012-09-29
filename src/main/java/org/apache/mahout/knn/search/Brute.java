@@ -87,7 +87,8 @@ public class Brute extends UpdatableSearcher {
      * @return A list of neighbors ordered closest first.
      */
     public List<WeightedVector> search(Vector v, int n) {
-        final List<WeightedVector> r = Lists.newArrayList(searchInternal(v, reference, n, new PriorityQueue<WeightedVector>(n, Ordering.natural().reverse())));
+        final PriorityQueue<WeightedVector> results = searchInternal(v, reference, n, new PriorityQueue<WeightedVector>(n, Ordering.natural().reverse()));
+        final List<WeightedVector> r = Lists.newArrayList(results);
         Collections.sort(r);
         return r;
     }
@@ -194,7 +195,7 @@ public class Brute extends UpdatableSearcher {
     }
 
     @Override
-    public boolean remove(Vector query) {
+    public boolean remove(Vector query, double epsilon) {
         int rowNumber = 0;
         for (MatrixSlice row : reference) {
             if (limit > 0 && rowNumber > limit) {

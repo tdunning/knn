@@ -25,7 +25,7 @@ import org.apache.mahout.math.Vector;
  */
 public abstract class UpdatableSearcher extends Searcher {
     @Override
-    public abstract boolean remove(Vector v);
+    public abstract boolean remove(Vector v, double epsilon);
 
     @Override
     public abstract void clear();

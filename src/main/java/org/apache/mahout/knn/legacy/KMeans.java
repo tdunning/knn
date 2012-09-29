@@ -124,7 +124,7 @@ public class KMeans {
                 } else {
                     // merge against existing
                     Centroid c = (Centroid) closest.getVector();
-                    centroids.remove(c);
+                    centroids.remove(c, 1e-7);
                     c.update(row.vector());
                     centroids.add(c, c.getIndex());
                 }

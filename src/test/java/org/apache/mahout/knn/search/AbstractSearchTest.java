@@ -133,14 +133,14 @@ public abstract class AbstractSearchTest {
 
             List<WeightedVector> r0 = s.search(x.get(0), 2);
 
-            s.remove(x.get(0).getVector());
+            s.remove(x.get(0).getVector(), 1e-7);
             assertEquals(size0 - 1, s.size());
 
             List<WeightedVector> r = s.search(x.get(0), 1);
             assertTrue("Vector should be gone", r.get(0).getWeight() > 0);
             assertEquals("Previous second neighbor should be first", 0, r.get(0).minus(r0.get(1)).norm(1), 1e-8);
 
-            s.remove(x.get(1).getVector());
+            s.remove(x.get(1).getVector(), 1e-7);
             assertEquals(size0 - 2, s.size());
 
             r = s.search(x.get(1), 1);
@@ -148,7 +148,7 @@ public abstract class AbstractSearchTest {
         } else {
             try {
                 List<WeightedVector> x = subset(s, 2);
-                s.remove(x.get(0));
+                s.remove(x.get(0), 1e-7);
                 fail("Shouldn't be able to delete from " + s.getClass().getName());
             } catch (UnsupportedOperationException e) {
                 // good enough that UOE is thrown

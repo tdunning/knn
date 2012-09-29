@@ -176,7 +176,7 @@ public class LocalitySensitiveHash extends UpdatableSearcher implements Iterable
     }
 
     @Override
-    public boolean remove(Vector v) {
+    public boolean remove(Vector v, double epsilon) {
         return trainingVectors.remove(HashedVector.hash(v, projection, 0, BITMASK));
     }
 
