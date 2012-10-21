@@ -22,12 +22,12 @@ import com.google.common.collect.Lists;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.knn.search.Brute;
-import org.apache.mahout.knn.Centroid;
-import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.knn.search.ProjectionSearch;
 import org.apache.mahout.knn.Searcher;
 import org.apache.mahout.knn.UpdatableSearcher;
+import org.apache.mahout.math.Centroid;
 import org.apache.mahout.math.MatrixSlice;
+import org.apache.mahout.math.WeightedVector;
 
 import java.util.Collections;
 import java.util.List;

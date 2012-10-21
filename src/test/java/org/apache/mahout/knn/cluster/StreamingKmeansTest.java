@@ -21,14 +21,14 @@ import com.google.common.collect.Lists;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.apache.mahout.knn.Searcher;
 import org.apache.mahout.knn.UpdatableSearcher;
-import org.apache.mahout.knn.WeightedVector;
-import org.apache.mahout.knn.generate.MultiNormal;
 import org.apache.mahout.knn.search.Brute;
 import org.apache.mahout.knn.search.LocalitySensitiveHash;
 import org.apache.mahout.knn.search.ProjectionSearch;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.MatrixSlice;
+import org.apache.mahout.math.WeightedVector;
+import org.apache.mahout.math.random.MultiNormal;
 import org.junit.Assert;
 import org.junit.Test;
 

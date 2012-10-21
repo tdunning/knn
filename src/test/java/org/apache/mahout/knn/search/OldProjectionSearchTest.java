@@ -21,9 +21,9 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import org.apache.commons.collections.ListUtils;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
-import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
+import org.apache.mahout.math.WeightedVector;
 import org.apache.mahout.math.function.DoubleFunction;
 import org.apache.mahout.math.function.Functions;
 

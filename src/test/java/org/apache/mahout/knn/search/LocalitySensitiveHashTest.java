@@ -17,15 +17,8 @@
 package org.apache.mahout.knn.search;
 
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
-import org.apache.mahout.knn.WeightedVector;
-import org.apache.mahout.knn.generate.Normal;
-import org.apache.mahout.knn.search.Brute;
-import org.apache.mahout.knn.search.HashedVector;
-import org.apache.mahout.knn.search.LocalitySensitiveHash;
-import org.apache.mahout.math.DenseMatrix;
-import org.apache.mahout.math.DenseVector;
-import org.apache.mahout.math.Matrix;
-import org.apache.mahout.math.Vector;
+import org.apache.mahout.math.*;
+import org.apache.mahout.math.random.Normal;
 import org.apache.mahout.math.stats.OnlineSummarizer;
 import org.junit.Assert;
 import org.junit.Test;

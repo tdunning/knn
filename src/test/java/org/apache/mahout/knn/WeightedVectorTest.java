@@ -17,6 +17,7 @@
 
 package org.apache.mahout.knn;
 
+import org.apache.mahout.math.Centroid;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import org.junit.Test;

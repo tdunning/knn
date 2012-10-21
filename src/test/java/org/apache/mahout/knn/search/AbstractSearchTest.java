@@ -23,13 +23,8 @@ import junit.framework.Assert;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.knn.Searcher;
 import org.apache.mahout.knn.UpdatableSearcher;
-import org.apache.mahout.knn.WeightedVector;
-import org.apache.mahout.knn.generate.MultiNormal;
-import org.apache.mahout.math.DenseMatrix;
-import org.apache.mahout.math.DenseVector;
-import org.apache.mahout.math.Matrix;
-import org.apache.mahout.math.MatrixSlice;
-import org.apache.mahout.math.Vector;
+import org.apache.mahout.math.*;
+import org.apache.mahout.math.random.MultiNormal;
 import org.junit.Test;
 
 import java.util.List;

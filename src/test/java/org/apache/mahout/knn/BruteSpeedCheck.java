@@ -17,14 +17,14 @@
 
 package org.apache.mahout.knn;
 
-import org.apache.mahout.knn.generate.MultiNormal;
-import org.apache.mahout.knn.generate.Sampler;
 import org.apache.mahout.knn.search.Brute;
 import org.apache.mahout.math.ConstantVector;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.Vector;
+import org.apache.mahout.math.random.MultiNormal;
+import org.apache.mahout.math.random.Sampler;
 
 /**
  * Tests brute force search speed.

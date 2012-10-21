@@ -7,11 +7,7 @@ import com.google.common.collect.Sets;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.knn.UpdatableSearcher;
-import org.apache.mahout.math.DenseMatrix;
-import org.apache.mahout.math.Matrix;
-import org.apache.mahout.math.MatrixSlice;
-import org.apache.mahout.math.Vector;
-import org.apache.mahout.knn.WeightedVector;
+import org.apache.mahout.math.*;
 import org.apache.mahout.math.jet.random.Normal;
 import org.apache.mahout.math.stats.OnlineSummarizer;
 

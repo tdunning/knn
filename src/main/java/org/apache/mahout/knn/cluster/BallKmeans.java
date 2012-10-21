@@ -22,14 +22,14 @@ import com.google.common.collect.Lists;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.apache.mahout.common.distance.SquaredEuclideanDistanceMeasure;
-import org.apache.mahout.knn.Centroid;
 import org.apache.mahout.knn.Searcher;
-import org.apache.mahout.knn.WeightedVector;
-import org.apache.mahout.knn.generate.Multinomial;
 import org.apache.mahout.knn.search.Brute;
+import org.apache.mahout.math.Centroid;
 import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.Vector;
+import org.apache.mahout.math.WeightedVector;
 import org.apache.mahout.math.function.Functions;
+import org.apache.mahout.math.random.Multinomial;
 
 import java.util.Iterator;
 import java.util.List;

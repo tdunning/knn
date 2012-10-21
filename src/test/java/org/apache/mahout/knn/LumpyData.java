@@ -18,10 +18,10 @@
 package org.apache.mahout.knn;
 
 import com.google.common.collect.Lists;
-import org.apache.mahout.knn.generate.ChineseRestaurant;
-import org.apache.mahout.knn.generate.MultiNormal;
-import org.apache.mahout.knn.generate.Sampler;
 import org.apache.mahout.math.Vector;
+import org.apache.mahout.math.random.ChineseRestaurant;
+import org.apache.mahout.math.random.MultiNormal;
+import org.apache.mahout.math.random.Sampler;
 
 import java.util.List;
 

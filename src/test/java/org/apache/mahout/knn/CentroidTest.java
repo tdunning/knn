@@ -17,10 +17,11 @@
 
 package org.apache.mahout.knn;
 
-import org.apache.mahout.knn.generate.MultiNormal;
+import org.apache.mahout.math.Centroid;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.function.Functions;
+import org.apache.mahout.math.random.MultiNormal;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;

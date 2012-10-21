@@ -17,7 +17,7 @@
 
 package org.apache.mahout.knn.search;
 
-import org.apache.mahout.knn.DelegatingVector;
+import org.apache.mahout.math.DelegatingVector;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.Vector;
 
@@ -28,12 +28,6 @@ public class HashedVector extends DelegatingVector implements Comparable<HashedV
     private static final int INVALID_INDEX = -1;
     private long hash;
     private int index;
-
-    protected HashedVector(int size, long hash, int index) {
-        super(size);
-        this.hash = hash;
-        this.index = index;
-    }
 
     public HashedVector(Vector v, long hash, int index) {
         super(v);

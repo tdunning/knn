@@ -23,10 +23,10 @@ import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.apache.mahout.common.distance.WeightedEuclideanDistanceMeasure;
 import org.apache.mahout.knn.UpdatableSearcher;
-import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.Vector;
+import org.apache.mahout.math.WeightedVector;
 
 import java.util.Collections;
 import java.util.Iterator;

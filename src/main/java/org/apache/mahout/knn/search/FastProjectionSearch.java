@@ -27,13 +27,13 @@ import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.knn.UpdatableSearcher;
-import org.apache.mahout.knn.WeightedVector;
-import org.apache.mahout.knn.generate.WeightedThing;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.Vector;
+import org.apache.mahout.math.WeightedVector;
 import org.apache.mahout.math.function.DoubleFunction;
 import org.apache.mahout.math.function.Functions;
+import org.apache.mahout.math.random.WeightedThing;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;

@@ -17,9 +17,9 @@
 
 package org.apache.mahout.knn;
 
-import org.apache.mahout.knn.WeightedVector;
 import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.Vector;
+import org.apache.mahout.math.WeightedVector;
 
 import java.util.List;
 
