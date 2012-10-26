@@ -25,13 +25,13 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 import org.apache.mahout.common.distance.DistanceMeasure;
-import org.apache.mahout.knn.UpdatableSearcher;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.WeightedVector;
 import org.apache.mahout.math.function.DoubleFunction;
 import org.apache.mahout.math.function.Functions;
+import org.apache.mahout.math.random.WeightedThing;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -42,136 +42,134 @@ import java.util.TreeSet;
 /**
  * Does approximate nearest neighbor dudes search by projecting the data.
  */
-public class ProjectionSearch extends UpdatableSearcher implements Iterable<MatrixSlice> {
-    private final List<TreeSet<WeightedVector>> vectors;
+public class ProjectionSearch extends UpdatableSearcher implements Iterable<WeightedVector> {
+  private final List<TreeSet<WeightedVector>> vectors;
 
-    private DistanceMeasure distance;
-    private List<Vector> basis;
-    private int searchSize;
+  private DistanceMeasure distance;
+  private List<Vector> basis;
+  private int searchSize;
 
-    public ProjectionSearch(int d, DistanceMeasure distance, int projections, int searchSize) {
-        this.searchSize = searchSize;
-        Preconditions.checkArgument(projections > 0 && projections < 100, "Unreasonable value for number of projections");
+  public ProjectionSearch(int d, DistanceMeasure distance, int projections, int searchSize) {
+    this.searchSize = searchSize;
+    Preconditions.checkArgument(projections > 0 && projections < 100, "Unreasonable value for number of projections");
 
-        final DoubleFunction random = Functions.random();
+    final DoubleFunction random = Functions.random();
 
-        this.distance = distance;
-        vectors = Lists.newArrayList();
-        basis = Lists.newArrayList();
+    this.distance = distance;
+    vectors = Lists.newArrayList();
+    basis = Lists.newArrayList();
 
-        // we want to create several projections.  Each is alike except for the
-        // direction of the projection
-        for (int i = 0; i < projections; i++) {
-            // create a random vector to use for the basis of the projection
-            final DenseVector projection = new DenseVector(d);
-            projection.assign(random);
-            projection.normalize();
+    // we want to create several projections.  Each is alike except for the
+    // direction of the projection
+    for (int i = 0; i < projections; i++) {
+      // create a random vector to use for the basis of the projection
+      final DenseVector projection = new DenseVector(d);
+      projection.assign(random);
+      projection.normalize();
 
-            basis.add(projection);
+      basis.add(projection);
 
-            // the projection is implemented by a tree set where the ordering of vectors
-            // is based on the dot product of the vector with the projection vector
-            vectors.add(Sets.<WeightedVector>newTreeSet());
-        }
+      // the projection is implemented by a tree set where the ordering of vectors
+      // is based on the dot product of the vector with the projection vector
+      vectors.add(Sets.<WeightedVector>newTreeSet());
+    }
+  }
+
+  /**
+   * Adds a WeightedVector into the set of projections for later searching.
+   * @param v  The WeightedVector to add.
+   */
+  public void add(WeightedVector v) {
+    // add to each projection separately
+    Iterator<Vector> projections = basis.iterator();
+    for (TreeSet<WeightedVector> s : vectors) {
+      s.add(WeightedVector.project(v, projections.next()));
+    }
+  }
+
+  /**
+   * Returns the number of vectors that we can search
+   * @return  The number of vectors added to the search so far.
+   */
+  public int size() {
+    return vectors.get(0).size();
+  }
+
+  public List<WeightedThing<WeightedVector>> search(final Vector query, int n) {
+    Multiset<WeightedVector> candidates = HashMultiset.create();
+    Iterator<Vector> projections = basis.iterator();
+    for (TreeSet<WeightedVector> v : vectors) {
+      WeightedVector projectedQuery = WeightedVector.project(query, projections.next());
+      for (WeightedVector candidate :
+          Iterables.limit(v.tailSet(projectedQuery, true), searchSize)) {
+        candidates.add(new WeightedVector(candidate.getVector(), 0, candidate.getIndex()));
+      }
+      for (WeightedVector candidate :
+          Iterables.limit(v.headSet(projectedQuery, false).descendingSet(), searchSize)) {
+        candidates.add(new WeightedVector(candidate.getVector(), 0, candidate.getIndex()));
+      }
     }
 
-    /**
-     * Adds a vector into the set of projections for later searching.
-     * @param v  The vector to add.
-     * @param index   An integer for tracking which vector is which
-     */
-    public void add(Vector v, int index) {
-        // add to each projection separately
-        Iterator<Vector> projections = basis.iterator();
-        for (TreeSet<WeightedVector> s : vectors) {
-            s.add(WeightedVector.project(v, projections.next(), index));
-        }
+    // if searchSize * vectors.size() is small enough not to cause much memory pressure, this is probably
+    // just as fast as a priority queue here.
+    List<WeightedThing<WeightedVector>> top = Lists.newArrayList();
+    for (WeightedVector candidate : candidates.elementSet()) {
+      top.add(new WeightedThing<WeightedVector>(candidate,
+          distance.distance(query, candidate)));
     }
+    Collections.sort(top);
+    return top.subList(0, n);
+  }
 
-    /**
-     * Returns the number of vectors that we can search
-     * @return  The number of vectors added to the search so far.
-     */
-    public int size() {
-        return vectors.get(0).size();
-    }
+  public Collection<WeightedVector> getVectors() {
+    return vectors.get(0);
+  }
 
-    public List<WeightedVector> search(final Vector query, int n) {
-        Multiset<WeightedVector> candidates = HashMultiset.create();
-        Iterator<Vector> projections = basis.iterator();
-        for (TreeSet<WeightedVector> v : vectors) {
-            WeightedVector projectedQuery = WeightedVector.project(query, projections.next());
-            for (WeightedVector candidate : Iterables.limit(v.tailSet(projectedQuery, true), searchSize)) {
-                candidates.add(new WeightedVector(candidate.getVector(), 0, candidate.getIndex()));
-            }
-            for (WeightedVector candidate : Iterables.limit(v.headSet(projectedQuery, false).descendingSet(), searchSize)) {
-                candidates.add(new WeightedVector(candidate.getVector(), 0, candidate.getIndex()));
-            }
-        }
+  public int getSearchSize() {
+    return searchSize;
+  }
 
-        // if searchSize * vectors.size() is small enough not to cause much memory pressure, this is probably
-        // just as fast as a priority queue here.
-        List<WeightedVector> top = Lists.newArrayList();
-        for (WeightedVector candidate : candidates.elementSet()) {
-            candidate.setWeight(distance.distance(query, candidate));
-            top.add(candidate);
-        }
-        Collections.sort(top);
-        return top.subList(0, n);
-    }
+  public void setSearchSize(int size) {
+    searchSize = size;
+  }
 
-    public Collection<WeightedVector> getVectors() {
-        return vectors.get(0);
-    }
+  @Override
+  public Iterator<WeightedVector> iterator() {
+    return new AbstractIterator<WeightedVector>() {
+      Iterator<WeightedVector> data = vectors.get(0).iterator();
 
-    @Override
-    public int getSearchSize() {
-        return searchSize;
-    }
-
-    @Override
-    public void setSearchSize(int size) {
-        searchSize = size;
-    }
-
-    @Override
-    public Iterator<MatrixSlice> iterator() {
-        return new AbstractIterator<MatrixSlice>() {
-            int index = 0;
-            Iterator<WeightedVector> data = vectors.get(0).iterator();
-
-            @Override
-            protected MatrixSlice computeNext() {
-                if (!data.hasNext()) {
-                    return endOfData();
-                } else {
-                    return new MatrixSlice(data.next().getVector(), index++);
-                }
-            }
-        };
-    }
-
-    public boolean remove(Vector vector, double epsilon) {
-        List<WeightedVector> x = search(vector, 1);
-        if (x.get(0).getWeight() < 1e-7) {
-            Iterator<Vector> basisVectors = basis.iterator();
-            for (TreeSet<WeightedVector> projection : vectors) {
-                WeightedVector v = new WeightedVector(vector, basisVectors.next(), -1);
-                boolean r = projection.remove(v);
-                if (!r) {
-                    throw new RuntimeException("Internal inconsistency in ProjectionSearch");
-                }
-            }
-            return true;
+      @Override
+      protected WeightedVector computeNext() {
+        if (!data.hasNext()) {
+          return endOfData();
         } else {
-            return false;
+          return data.next();
         }
-    }
+      }
+    };
+  }
 
-    @Override
-    public void clear() {
-        for (TreeSet<WeightedVector> set : vectors) {
-            set.clear();
+  public boolean remove(WeightedVector vector, double epsilon) {
+    List<WeightedThing<WeightedVector>> x = search(vector, 1);
+    if (x.get(0).getWeight() < 1e-7) {
+      Iterator<Vector> basisVectors = basis.iterator();
+      for (TreeSet<WeightedVector> projection : vectors) {
+        WeightedVector v = new WeightedVector(vector, basisVectors.next(), -1);
+        boolean r = projection.remove(v);
+        if (!r) {
+          throw new RuntimeException("Internal inconsistency in ProjectionSearch");
         }
+      }
+      return true;
+    } else {
+      return false;
     }
+  }
+
+  @Override
+  public void clear() {
+    for (TreeSet<WeightedVector> set : vectors) {
+      set.clear();
+    }
+  }
 }

@@ -15,18 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.knn;
+package org.apache.mahout.knn.cluster;
 
-import org.apache.mahout.math.Vector;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import org.apache.mahout.common.RandomUtils;
+import org.apache.mahout.common.distance.DistanceMeasure;
+import org.apache.mahout.knn.search.ProjectionSearch;
+import org.apache.mahout.knn.search.Searcher;
+import org.apache.mahout.knn.search.UpdatableSearcher;
+import org.apache.mahout.math.Centroid;
+import org.apache.mahout.math.MatrixSlice;
+import org.apache.mahout.math.WeightedVector;
 
-/**
- * Describes how we search vectors.  A class should extend UpdatableSearch if
- * they can handle a remove function.
- */
-public abstract class UpdatableSearcher extends Searcher {
-    @Override
-    public abstract boolean remove(Vector v, double epsilon);
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
 
-    @Override
-    public abstract void clear();
-}

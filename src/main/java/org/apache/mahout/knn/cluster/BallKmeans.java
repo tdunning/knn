@@ -22,14 +22,15 @@ import com.google.common.collect.Lists;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.apache.mahout.common.distance.SquaredEuclideanDistanceMeasure;
-import org.apache.mahout.knn.Searcher;
-import org.apache.mahout.knn.search.Brute;
+import org.apache.mahout.knn.search.BruteSearch;
+import org.apache.mahout.knn.search.Searcher;
 import org.apache.mahout.math.Centroid;
 import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.WeightedVector;
 import org.apache.mahout.math.function.Functions;
 import org.apache.mahout.math.random.Multinomial;
+import org.apache.mahout.math.random.WeightedThing;
 
 import java.util.Iterator;
 import java.util.List;
@@ -51,7 +52,7 @@ public class BallKmeans implements Iterable<Centroid> {
     public BallKmeans(int k, Iterable<MatrixSlice> data, int maxIterations) {
         DistanceMeasure metric = new EuclideanDistanceMeasure();
 
-        centroidFinder = new Brute(metric);
+        centroidFinder = new BruteSearch(metric);
 
         // use k-means++ to set initial centroids
         initializeSeeds(k, data);
@@ -168,7 +169,7 @@ public class BallKmeans implements Iterable<Centroid> {
 
         int i = 0;
         for (WeightedVector seed : seeds) {
-            centroidFinder.add(new Centroid(i, seed.getVector(), 1), i);
+            centroidFinder.add(new Centroid(i, seed.getVector(), 1));
             clusters.add(new Centroid(i, seed.getVector(), seed.getWeight()));
             i++;
         }
@@ -211,9 +212,9 @@ public class BallKmeans implements Iterable<Centroid> {
         for (int i = 0; i < maxIterations; i++) {
             // need to know how the closest other cluster for each cluster
             d.clear();
-            for (MatrixSlice center : centroidFinder) {
-                List<WeightedVector> nearest = centroidFinder.search(center.vector(), 2);
-                d.add(l2.distance(center.vector(), nearest.get(1)));
+            for (WeightedVector center : centroidFinder) {
+                List<WeightedThing<WeightedVector>> nearest = centroidFinder.search(center, 2);
+                d.add(l2.distance(center, nearest.get(1).getValue()));
             }
 
             boolean changed = false;
@@ -233,7 +234,7 @@ public class BallKmeans implements Iterable<Centroid> {
                     assignments.add(-1);
                 }
 
-                WeightedVector closest = centroidFinder.search(row.vector(), 1).get(0);
+                WeightedVector closest = centroidFinder.search(row.vector(),  1).get(0).getValue();
                 if (closest.getIndex() != assignments.get(row.index())) {
                     changed = true;
                 }
@@ -252,7 +253,7 @@ public class BallKmeans implements Iterable<Centroid> {
             // add new centers back into searcher
             centroidFinder.clear();
             for (Centroid cluster : newClusters) {
-                centroidFinder.add(cluster, cluster.getIndex());
+                centroidFinder.add(cluster);
             }
         }
     }

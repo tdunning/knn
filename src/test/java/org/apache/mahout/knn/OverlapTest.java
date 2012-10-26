@@ -22,6 +22,7 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import org.apache.mahout.common.distance.SquaredEuclideanDistanceMeasure;
 import org.apache.mahout.knn.search.FastProjectionSearch;
+import org.apache.mahout.knn.search.Searcher;
 import org.apache.mahout.math.*;
 import org.apache.mahout.math.function.Functions;
 import org.apache.mahout.math.function.VectorFunction;
@@ -37,6 +38,7 @@ import java.util.Set;
 /**
  * Measure speed and overlap for different search methods.
  */
+/*
 public class OverlapTest {
     Logger log = LoggerFactory.getLogger(this.getClass());
 
@@ -131,3 +133,4 @@ public class OverlapTest {
         }
     }
 }
+*/

@@ -22,7 +22,6 @@ import com.google.common.collect.Sets;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.apache.mahout.knn.LumpyData;
-import org.apache.mahout.knn.UpdatableSearcher;
 import org.apache.mahout.math.*;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -31,6 +30,7 @@ import org.junit.Test;
 import java.util.List;
 import java.util.Set;
 
+/*
 public class ProjectionSearchTest extends AbstractSearchTest {
     private static Matrix data;
     private static final int QUERIES = 20;
@@ -102,3 +102,4 @@ public class ProjectionSearchTest extends AbstractSearchTest {
         return new ProjectionSearch(n, new EuclideanDistanceMeasure(), 4, 20);
     }
 }
+*/

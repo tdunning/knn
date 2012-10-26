@@ -6,9 +6,9 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.common.distance.DistanceMeasure;
-import org.apache.mahout.knn.UpdatableSearcher;
 import org.apache.mahout.math.*;
 import org.apache.mahout.math.jet.random.Normal;
+import org.apache.mahout.math.random.WeightedThing;
 import org.apache.mahout.math.stats.OnlineSummarizer;
 
 import java.util.Collections;
@@ -23,7 +23,7 @@ import java.util.Set;
  * is that it does an adaptive cutoff for the cutoff on the bitwise distance.  Making this
  * cutoff adaptive means that we only needs to make a single pass through the data.
  */
-public class LocalitySensitiveHash extends UpdatableSearcher implements Iterable<MatrixSlice> {
+public class LocalitySensitiveHashSearch extends UpdatableSearcher implements Iterable<WeightedVector> {
     private static final int BITS = 64;
     @SuppressWarnings("PointlessBitwiseExpression")
     private static final long BITMASK = -1L >>> 64 - BITS;
@@ -49,7 +49,7 @@ public class LocalitySensitiveHash extends UpdatableSearcher implements Iterable
 
     private int distanceEvaluations = 0;
 
-    public LocalitySensitiveHash(int dimension, DistanceMeasure distance, int searchSize) {
+    public LocalitySensitiveHashSearch(int dimension, DistanceMeasure distance, int searchSize) {
         this.distance = distance;
         this.searchSize = searchSize;
 
@@ -57,11 +57,14 @@ public class LocalitySensitiveHash extends UpdatableSearcher implements Iterable
         projection.assign(new Normal(0, 1, RandomUtils.getRandom()));
     }
 
-    public List<WeightedVector> search(Vector q, int numberOfNeighbors) {
+    @Override
+    public List<WeightedThing<WeightedVector>> search(Vector q, int numberOfNeighbors) {
         long queryHash = HashedVector.computeHash64(q, projection);
 
         // we keep an approximation of the closest vectors here
-        PriorityQueue<WeightedVector> top = new PriorityQueue<WeightedVector>(getSearchSize(), Ordering.natural().reverse());
+        PriorityQueue<WeightedThing<WeightedVector>> top = new
+            PriorityQueue<WeightedThing<WeightedVector>>(getSearchSize(),
+            Ordering.natural().reverse());
 
         // we keep the counts of the hash distances here.  This lets us accurately
         // judge what hash distance cutoff we should use.
@@ -92,7 +95,7 @@ public class LocalitySensitiveHash extends UpdatableSearcher implements Iterable
                 double d = distance.distance(q, v);
                 distribution[bitDot].add(d);
                 if (d < distanceLimit) {
-                    top.add(new WeightedVector(v.getVector(), d, v.getIndex()));
+                    top.add(new WeightedThing<WeightedVector>(v, d));
                     while (top.size() > searchSize) {
                         top.poll();
                     }
@@ -119,14 +122,14 @@ public class LocalitySensitiveHash extends UpdatableSearcher implements Iterable
             }
         }
 
-        List<WeightedVector> r = Lists.newArrayList(top);
+        List<WeightedThing<WeightedVector>> r = Lists.newArrayList(top);
         Collections.sort(r);
         return r.subList(0, numberOfNeighbors);
     }
 
 
-    public void add(Vector v, int index) {
-        trainingVectors.add(HashedVector.hash(v, projection, index, BITMASK));
+    public void add(WeightedVector v) {
+        trainingVectors.add(HashedVector.hash(v, projection, BITMASK));
     }
 
 
@@ -134,12 +137,10 @@ public class LocalitySensitiveHash extends UpdatableSearcher implements Iterable
         return trainingVectors.size();
     }
 
-    @Override
     public int getSearchSize() {
         return searchSize;
     }
 
-    @Override
     public void setSearchSize(int size) {
         searchSize = size;
     }
@@ -155,25 +156,25 @@ public class LocalitySensitiveHash extends UpdatableSearcher implements Iterable
     }
 
     @Override
-    public Iterator<MatrixSlice> iterator() {
-        return new AbstractIterator<MatrixSlice>() {
+    public Iterator<WeightedVector> iterator() {
+        return new AbstractIterator<WeightedVector>() {
             int index = 0;
             Iterator<HashedVector> data = trainingVectors.iterator();
 
             @Override
-            protected MatrixSlice computeNext() {
+            protected WeightedVector computeNext() {
                 if (!data.hasNext()) {
                     return endOfData();
                 } else {
-                    return new MatrixSlice(data.next().getVector(), index++);
+                    return data.next();
                 }
             }
         };
     }
 
     @Override
-    public boolean remove(Vector v, double epsilon) {
-        return trainingVectors.remove(HashedVector.hash(v, projection, 0, BITMASK));
+    public boolean remove(WeightedVector v, double epsilon) {
+        return trainingVectors.remove(HashedVector.hash(v, projection, BITMASK));
     }
 
     @Override
