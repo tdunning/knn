@@ -224,7 +224,7 @@ public class FastProjectionSearch extends UpdatableSearcher implements
       Collections.sort(top);
     }
 
-    return top.subList(0, limit);
+    return top.subList(0, Math.min(top.size(), limit));
   }
 
   /**
