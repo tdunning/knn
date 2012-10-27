@@ -19,6 +19,7 @@ package org.apache.mahout.knn.search;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Ordering;
 import com.google.common.collect.Queues;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
@@ -82,27 +83,36 @@ public class BruteSearch extends UpdatableSearcher {
    */
   public List<WeightedThing<WeightedVector>> search(Vector query, int limit) {
     Preconditions.checkArgument(limit > 0);
-    PriorityQueue<WeightedVector> bestNeigbors = Queues.newPriorityQueue();
+    // A priority queue of the best @limit elements, ordered from worst to best so that the worst
+    // element is always on top and can easily be removed.
+    PriorityQueue<WeightedThing<Integer>> bestNeighbors = new
+        PriorityQueue<WeightedThing<Integer>>(limit, Ordering.natural().reverse());
+    // The reulting list of weighted WeightedVectors (the weight is the distance from the query).
+    List<WeightedThing<WeightedVector>> results =
+        Lists.newArrayListWithCapacity(limit);
     int rowNumber = 0;
     for (WeightedVector row : referenceVectors) {
       double distance = metric.distance(query, row);
       // Only add a new neighbor if the result is better than the worst element
       // in the queue or the queue isn't full.
-      if (bestNeigbors.size() < limit
-          || bestNeigbors.peek().getWeight() > distance) {
-        WeightedVector newNeighbor = (WeightedVector)row.clone();
-        newNeighbor.setWeight(distance);
-        bestNeigbors.add(newNeighbor);
-        if (bestNeigbors.size() > limit)
-          bestNeigbors.poll();
+      if (bestNeighbors.size() < limit || bestNeighbors.peek().getWeight() > distance) {
+        bestNeighbors.add(new WeightedThing<Integer>(rowNumber, distance));
+        if (bestNeighbors.size() > limit) {
+          bestNeighbors.poll();
+        } else {
+          // Increase the size of the results list by 1 so we can add elements in the reverse
+          // order from the queue.
+          results.add(null);
+        }
       }
+      ++rowNumber;
     }
-    List<WeightedThing<WeightedVector>> bestNeighborPairs = Lists.newArrayList();
-    for (WeightedVector neighbor : bestNeigbors) {
-      bestNeighborPairs.add(new WeightedThing<WeightedVector>(
-          referenceVectors.get(neighbor.getIndex()), neighbor.getWeight()));
+    for (int i = limit - 1; i >= 0; --i) {
+      WeightedThing<Integer> neighbor = bestNeighbors.poll();
+      results.set(i, new WeightedThing<WeightedVector>(
+          referenceVectors.get(neighbor.getValue()), neighbor.getWeight()));
     }
-    return bestNeighborPairs;
+    return results;
   }
 
   /**
