@@ -212,9 +212,9 @@ public class BallKmeans implements Iterable<Centroid> {
         for (int i = 0; i < maxIterations; i++) {
             // need to know how the closest other cluster for each cluster
             d.clear();
-            for (WeightedVector center : centroidFinder) {
-                List<WeightedThing<WeightedVector>> nearest = centroidFinder.search(center, 2);
-                d.add(l2.distance(center, nearest.get(1).getValue()));
+            for (Vector center : centroidFinder) {
+              Vector closestOtherCluster = centroidFinder.search(center, 2).get(1).getValue();
+                d.add(l2.distance(center, closestOtherCluster));
             }
 
             boolean changed = false;
@@ -234,7 +234,8 @@ public class BallKmeans implements Iterable<Centroid> {
                     assignments.add(-1);
                 }
 
-                WeightedVector closest = centroidFinder.search(row.vector(),  1).get(0).getValue();
+                WeightedVector closest =
+                    (WeightedVector)centroidFinder.search(row.vector(), 1).get(0).getValue();
                 if (closest.getIndex() != assignments.get(row.index())) {
                     changed = true;
                 }

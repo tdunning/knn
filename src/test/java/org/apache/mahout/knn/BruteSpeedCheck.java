@@ -17,9 +17,10 @@
 
 package org.apache.mahout.knn;
 
-/*
+
 import com.google.common.collect.Lists;
-import org.apache.mahout.knn.search.Brute;
+import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
+import org.apache.mahout.knn.search.BruteSearch;
 import org.apache.mahout.math.ConstantVector;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.Matrix;
@@ -51,7 +52,8 @@ public class BruteSpeedCheck {
 
     for (int threads : new int[]{1, 2, 3, 4, 5, 6, 10, 20, 50}) {
       for (int block : new int[]{1, 10, 50}) {
-        Brute search = new Brute(referenceVectors);
+        BruteSearch search = new BruteSearch(new EuclideanDistanceMeasure());
+        search.addAll(referenceVectors);
         long t0 = System.nanoTime();
         search.search(queryVectors, block, threads);
         long t1 = System.nanoTime();
@@ -60,4 +62,4 @@ public class BruteSpeedCheck {
     }
   }
 }
-*/
+

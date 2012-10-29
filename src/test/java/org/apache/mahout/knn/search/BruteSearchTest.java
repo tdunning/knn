@@ -52,15 +52,16 @@ public class BruteSearchTest extends AbstractSearchTest {
   @Test
   public void testMatrixSearch() {
     List<WeightedVector> referenceVectors = Lists.newArrayListWithExpectedSize(8);
+    BruteSearch searcher = new BruteSearch(new EuclideanDistanceMeasure());
     for (int i = 0; i < 8; i++) {
       referenceVectors.add(new WeightedVector(
           new DenseVector(new double[]{0.125 * (i & 4), i & 2, i & 1}), 1, i));
+      searcher.add(referenceVectors.get(referenceVectors.size() - 1));
     }
 
-    BruteSearch searcher = new BruteSearch(referenceVectors);
-    final List<List<WeightedThing<WeightedVector>>> searchResults =
+    final List<List<WeightedThing<Vector>>> searchResults =
         searcher.search(referenceVectors, 3);
-    for (List<WeightedThing<WeightedVector>> r : searchResults) {
+    for (List<WeightedThing<Vector>> r : searchResults) {
       assertEquals(0, r.get(0).getWeight(), 1e-8);
       assertEquals(0.5, r.get(1).getWeight(), 1e-8);
       assertEquals(1, r.get(2).getWeight(), 1e-8);

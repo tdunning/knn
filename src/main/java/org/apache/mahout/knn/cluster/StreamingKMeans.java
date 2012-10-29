@@ -21,13 +21,14 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.common.distance.DistanceMeasure;
+import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
 import org.apache.mahout.knn.search.BruteSearch;
 import org.apache.mahout.knn.search.ProjectionSearch;
 import org.apache.mahout.knn.search.Searcher;
 import org.apache.mahout.knn.search.UpdatableSearcher;
 import org.apache.mahout.math.Centroid;
-import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.WeightedVector;
+import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.random.WeightedThing;
 
 import java.util.*;
@@ -46,7 +47,7 @@ public class StreamingKMeans {
   // which are much closer than this to a centroid will stick to it
   // almost certainly.  Points further than this to any centroid will
   // form a new cluster.
-  private double distanceCutoff;
+  private double distanceCutoff = Double.MAX_VALUE;
 
   private DistanceMeasure distanceMeasure;
 
@@ -54,10 +55,8 @@ public class StreamingKMeans {
 
   private int maxClusters;
 
-  private List<WeightedVector> top;
-
   public StreamingKMeans(int dimension, final DistanceMeasure distance, int maxClusters) {
-    this(distance, new ProjectionSearch(dimension, distance, 10, 20), maxClusters);
+    this(distance, new ProjectionSearch(distance, dimension, 10, 20), maxClusters);
   }
 
   public StreamingKMeans(final DistanceMeasure distance, UpdatableSearcher searcher, int maxClusters) {
@@ -74,22 +73,15 @@ public class StreamingKMeans {
   }
 
   private void estimateCutoff(Iterable<WeightedVector> data) {
-    Iterable<WeightedVector> newTop = Iterables.concat(Iterables.limit(data, TOP_MAX_SIZE), top);
-    for (WeightedVector datapoint : data)
-      if (top.size() <= TOP_MAX_SIZE)
-        top.add(datapoint);
-
-    // first we need to have a reasonable value for what a "small" distance is
-    // so we find the shortest distance between any of the first hundred data points
-    distanceCutoff = Double.POSITIVE_INFINITY;
-    for (List<WeightedThing<WeightedVector>> distances :
-        new BruteSearch(newTop).search(newTop,  2)) {
-      if (distances.size() > 1) {
-        final double x = distances.get(1).getWeight();
-        if (x != 0 && x < distanceCutoff) {
-          distanceCutoff = x;
+    int i = 0;
+    for (WeightedVector v1 : data) {
+      for (WeightedVector v2 : Iterables.skip(data, i + 1)) {
+        double distance = distanceMeasure.distance(v1, v2);
+        if (distance > 0 && distance < distanceCutoff) {
+          distance =  distanceCutoff;
         }
       }
+      ++i;
     }
   }
 
@@ -103,7 +95,7 @@ public class StreamingKMeans {
 
     for (WeightedVector row : Iterables.skip(data, 1)) {
       // estimate distance d to closest centroid
-      WeightedVector closest = centroids.search(row, 1).get(0).getValue();
+      WeightedVector closest = (WeightedVector)centroids.search(row, 1).get(0).getValue();
 
       if (rand.nextDouble() < closest.getWeight() / distanceCutoff) {
         // add new centroid, note that the vector is copied because we may mutate it later
@@ -119,7 +111,10 @@ public class StreamingKMeans {
       if (depth < 2 && centroids.size() > maxClusters) {
         maxClusters = (int) Math.max(maxClusters, 10 * Math.log(n));
         // TODO does shuffling help?
-        List<WeightedVector> shuffled = Lists.newArrayList(centroids);
+        List<WeightedVector> shuffled = Lists.newArrayList();
+        for (Vector v : centroids) {
+          shuffled.add((WeightedVector)v);
+        }
         Collections.shuffle(shuffled);
         centroids = clusterInternal(shuffled, depth + 1);
 

@@ -78,34 +78,33 @@ public class FastProjectionSearchTest extends AbstractSearchTest {
 
         BruteSearch brute = new BruteSearch(metric);
         brute.addAllMatrixSlices(m);
-        FastProjectionSearch test = new FastProjectionSearch(d, metric, 20, 20);
+        FastProjectionSearch test = new FastProjectionSearch(metric, d, 20, 20);
         test.addAllMatrixSlices(m);
 
         int bigRatio = 0;
         double averageOverlap = 0;
         for (MatrixSlice qx : q) {
           final Vector query = qx.vector();
-          final List<WeightedThing<WeightedVector>> r1 = brute.search(query, 20);
-          WeightedVector v1 = r1.get(0).getValue();
-          final List<WeightedThing<WeightedVector>> r2 = test.search(query, 30);
-          WeightedVector v2 = r2.get(0).getValue();
+          final List<WeightedThing<Vector>> r1 = brute.search(query, 20);
+          Vector v1 = r1.get(0).getValue();
+          final List<WeightedThing<Vector>> r2 = test.search(query, 30);
+          Vector v2 = r2.get(0).getValue();
 
-          class StripWeight implements Function<WeightedThing<WeightedVector>, WeightedVector> {
-
+          class StripWeight implements Function<WeightedThing<Vector>, Vector> {
             @Override
-            public WeightedVector apply(WeightedThing<WeightedVector> input) {
+            public Vector apply(WeightedThing<Vector> input) {
               Preconditions.checkArgument(input != null);
               return input.getValue();
             }
           };
 
-          for (WeightedVector v : Iterables.transform(r1, new StripWeight())) {
-            for (WeightedVector w : Iterables.transform(r2, new StripWeight())) {
+          for (Vector v : Iterables.transform(r1, new StripWeight())) {
+            for (Vector w : Iterables.transform(r2, new StripWeight())) {
               if (v.equals(w))
                 ++averageOverlap;
             }
           }
-          if (v2.getWeight() / v1.getWeight() > 1.4) {
+          if (r2.get(0).getWeight() / r1.get(0).getWeight() > 1.4) {
             bigRatio++;
           }
         }
@@ -119,7 +118,7 @@ public class FastProjectionSearchTest extends AbstractSearchTest {
 
   @Override
   public UpdatableSearcher getSearch(int n) {
-    return new FastProjectionSearch(n, new EuclideanDistanceMeasure(), 4, 20);
+    return new FastProjectionSearch(new EuclideanDistanceMeasure(), n, 4, 20);
   }
 }
 

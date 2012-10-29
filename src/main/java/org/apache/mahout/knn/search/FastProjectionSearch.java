@@ -39,26 +39,35 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Does approximate nearest neighbor dudes search by projecting the data.
+ * Does approximate nearest neighbor dudes search by projecting the referenceVectors.
+ * The main difference between this class and the ProjectionSearch is the use of sorted arrays
+ * instead of binary search trees to implement the sets of scalar projections.
+ *
+ * Instead of taking log n time to add a vector to each of the vectors,
+ * the pending additions are kept separate and are searched using a brute search. When there are
+ * "enough" pending additions, they're committed into the main pool of vectors.
  */
-public class FastProjectionSearch extends UpdatableSearcher implements
-    Iterable<WeightedVector> {
-  // the actual vectors
-  private List<WeightedVector> data = Lists.newArrayList();
-  private List<WeightedVector> pendingAdditions = Lists.newArrayList();
+public class FastProjectionSearch extends UpdatableSearcher implements Iterable<Vector> {
+  /**
+   * The actual vectors.
+   * The referenceVectors are the ones already in the sorted arrays, searched using binary search
+   * on the scalar projections.
+   * The pendingReferenceVectors are the recently added ones, that are not immediately added.
+   */
+  private List<Vector> referenceVectors = Lists.newArrayList();
+  private List<Vector> pendingReferenceVectors = Lists.newArrayList();
 
-  // the projection basis
-  private List<Vector> basis;
-
-  // how we should measure distance
-  private DistanceMeasure distanceMeasure;
+  /**
+   * The projection basis.
+   */
+  private List<Vector> basisVectors;
 
   // how many candidates per projection to examine
   private int searchSize;
 
-  // these store the projections of each vector against each basis vector
+  // these store the projections of each vector against each basisVectors vector
   private List<double[]> projections = Lists.newArrayList();
-  // and these link back to the original data.
+  // and these link back to the original referenceVectors.
   private List<int[]> vectorIds = Lists.newArrayList();
 
   // dirty indicates that we have pending insertions
@@ -67,48 +76,34 @@ public class FastProjectionSearch extends UpdatableSearcher implements
   // we do a full index
   private int pendingRemovals = 0;
 
-  public FastProjectionSearch(int d, DistanceMeasure distanceMeasure,
-                              int projections, int searchSize) {
-    this.searchSize = searchSize;
-    Preconditions.checkArgument(projections > 0 && projections < 100,
+  public FastProjectionSearch(DistanceMeasure distanceMeasure, int numDimensions,
+                              int numProjections, int searchSize) {
+    super(distanceMeasure);
+    Preconditions.checkArgument(numProjections > 0 && numProjections < 100,
         "Unreasonable value for number of projections");
+    this.searchSize = searchSize;
+    basisVectors = ProjectionSearch.generateBasis(numDimensions, numProjections);
 
-    final DoubleFunction random = Functions.random();
-
-    this.distanceMeasure = distanceMeasure;
-    basis = Lists.newArrayList();
-
-    // we want to create several projections.  Each is alike except for the
-    // direction of the projection
-    for (int i = 0; i < projections; i++) {
-      // create a random vector to use for the basis of the projection
-      final DenseVector projection = new DenseVector(d);
-      projection.assign(random);
-      projection.normalize();
-
-      basis.add(projection);
-    }
   }
 
   /**
    * Adds a vector into the set of projections for later searching.
    *
-   * @param v     The weighted vector to add. It contains a weight (ignored
-   *              for now) and an index which is used to track which vector
-   *              is which.
+   * @param v     The vector to add.
    */
-  public void add(WeightedVector v) {
-    pendingAdditions.add(v);
+  @Override
+  public void add(Vector v) {
+    pendingReferenceVectors.add(v);
   }
 
   @Override
-  public boolean remove(WeightedVector vector, double epsilon) {
+  public boolean remove(Vector vector, double epsilon) {
     boolean found = false;
 
     final double epsilon2 = epsilon * epsilon;
     Set<Integer> candidates = Sets.newHashSet();
     for (int i = 0; i < projections.size(); i++) {
-      final double projection = basis.get(i).dot(vector);
+      final double projection = basisVectors.get(i).dot(vector);
       int r = Arrays.binarySearch(projections.get(i), projection);
       if (r < 0) {
         r = -(r + 1);
@@ -116,23 +111,23 @@ public class FastProjectionSearch extends UpdatableSearcher implements
       while (r >= 0 && projections.get(i)[r] >= projection - epsilon2) {
         r--;
       }
-      while (r < data.size() && projections.get(i)[r] <= projection + epsilon2) {
+      while (r < referenceVectors.size() && projections.get(i)[r] <= projection + epsilon2) {
         candidates.add(vectorIds.get(i)[r]);
         r++;
       }
     }
 
     for (Integer id : candidates) {
-      if (id >= 0 && vector.getDistanceSquared(data.get(id)) < epsilon2) {
+      if (id >= 0 && vector.getDistanceSquared(referenceVectors.get(id)) < epsilon2) {
         // for all real matches, we just scrub away the id and take the storage
         // hit
         found = true;
         pendingRemovals++;
 
         // first set vector to something a vector that can't match
-        Vector bogus = data.get(id).like();
+        Vector bogus = referenceVectors.get(id).like();
         bogus.assign(Double.NaN);
-        data.set(id, new WeightedVector(bogus, 0, -1));
+        referenceVectors.set(id, new WeightedVector(bogus, 0, -1));
 
         // then hide the tracks
         for (int[] idList : vectorIds) {
@@ -145,17 +140,17 @@ public class FastProjectionSearch extends UpdatableSearcher implements
       }
     }
 
-    if (pendingAdditions.size() > 0) {
+    if (pendingReferenceVectors.size() > 0) {
       // copy just live vectors
-      List<WeightedVector> newAdditions = Lists.newArrayList();
-      for (WeightedVector v : pendingAdditions) {
+      List<Vector> newAdditions = Lists.newArrayList();
+      for (Vector v : pendingReferenceVectors) {
         if (vector.getDistanceSquared(v) < epsilon2) {
           found = true;
         } else {
           newAdditions.add(v);
         }
       }
-      pendingAdditions = newAdditions;
+      pendingReferenceVectors = newAdditions;
     }
 
     return found;
@@ -167,16 +162,16 @@ public class FastProjectionSearch extends UpdatableSearcher implements
    * @return The number of vectors added to the search so far.
    */
   public int size() {
-    return data.size() + pendingAdditions.size() - pendingRemovals;
+    return referenceVectors.size() + pendingReferenceVectors.size() - pendingRemovals;
   }
 
 
-  public List<WeightedThing<WeightedVector>> search(final Vector query, int limit) {
+  public List<WeightedThing<Vector>> search(final Vector query, int limit) {
     reindex();
 
     Multiset<Integer> candidateIds = HashMultiset.create();
-    for (int i = 0; i < basis.size(); i++) {
-      final double projection = basis.get(i).dot(query);
+    for (int i = 0; i < basisVectors.size(); i++) {
+      final double projection = basisVectors.get(i).dot(query);
       int r = Arrays.binarySearch(projections.get(i), projection);
       if (r < 0) {
         r = -(r + 1);
@@ -186,8 +181,8 @@ public class FastProjectionSearch extends UpdatableSearcher implements
       if (start < 0) {
         start = 0;
       }
-      if (end > data.size()) {
-        end = data.size();
+      if (end > referenceVectors.size()) {
+        end = referenceVectors.size();
       }
       for (int j = start; j < end; j++) {
         candidateIds.add(vectorIds.get(i)[j]);
@@ -196,18 +191,18 @@ public class FastProjectionSearch extends UpdatableSearcher implements
 
     // if searchSize * vectors.size() is small enough not to cause much memory
     // pressure, this is probably just as fast as a priority queue here.
-    List<WeightedThing<WeightedVector>> top = Lists.newArrayList();
+    List<WeightedThing<Vector>> top = Lists.newArrayList();
     for (int candidateId : candidateIds.elementSet()) {
       if (candidateId != -1) {
-        final WeightedVector v = data.get(candidateId);
-        top.add(new WeightedThing<WeightedVector>(v, distanceMeasure.distance(query, v)));
+        final Vector v = referenceVectors.get(candidateId);
+        top.add(new WeightedThing<Vector>(v, distanceMeasure.distance(query, v)));
       }
     }
 
     Collections.sort(top);
 
     // may have to search the last few linearly
-    if (pendingAdditions.size() > 0) {
+    if (pendingReferenceVectors.size() > 0) {
       int lastIndex = top.size();
       if (lastIndex >= limit) {
        lastIndex = limit - 1;
@@ -215,10 +210,10 @@ public class FastProjectionSearch extends UpdatableSearcher implements
       }
       double largestDistance = top.get(lastIndex).getWeight();
 
-      for (WeightedVector v : pendingAdditions) {
+      for (Vector v : pendingReferenceVectors) {
         double distance = distanceMeasure.distance(query, v);
         if (distance < largestDistance) {
-          top.add(new WeightedThing<WeightedVector>(v, distance));
+          top.add(new WeightedThing<Vector>(v, distance));
         }
       }
       Collections.sort(top);
@@ -232,35 +227,35 @@ public class FastProjectionSearch extends UpdatableSearcher implements
    * scratch.  Deletions don't require this, but we get rid of them in passing.
    */
   private void reindex() {
-    if (dirty || pendingAdditions.size() > 0.05 * data.size()
-        || pendingRemovals > 0.2 * data.size()) {
-      data.addAll(pendingAdditions);
-      pendingAdditions.clear();
+    if (dirty || pendingReferenceVectors.size() > 0.05 * referenceVectors.size()
+        || pendingRemovals > 0.2 * referenceVectors.size()) {
+      referenceVectors.addAll(pendingReferenceVectors);
+      pendingReferenceVectors.clear();
 
       // clean up pending deletions by copying to a new list
-      List<WeightedVector> newData = Lists.newArrayList();
-      for (WeightedVector v : data) {
+      List<Vector> newData = Lists.newArrayList();
+      for (Vector v : referenceVectors) {
         if (!Double.isNaN(v.getQuick(0))) {
           newData.add(v);
         }
       }
-      data = newData;
+      referenceVectors = newData;
       pendingRemovals = 0;
 
-      // build projections for all data
+      // build projections for all referenceVectors
       vectorIds.clear();
       projections.clear();
-      for (Vector u : basis) {
+      for (Vector u : basisVectors) {
         List<WeightedThing<Integer>> tmp = Lists.newArrayList();
         int id = 0;
-        for (WeightedVector vector : data) {
+        for (Vector vector : referenceVectors) {
           tmp.add(new WeightedThing<Integer>(id++, u.dot(vector)));
         }
         Collections.sort(tmp);
 
-        final int[] ids = new int[data.size()];
+        final int[] ids = new int[referenceVectors.size()];
         vectorIds.add(ids);
-        final double[] proj = new double[data.size()];
+        final double[] proj = new double[referenceVectors.size()];
         projections.add(proj);
         int j = 0;
         for (WeightedThing<Integer> v : tmp) {
@@ -290,20 +285,20 @@ public class FastProjectionSearch extends UpdatableSearcher implements
   }
 
   @Override
-  public Iterator<WeightedVector> iterator() {
+  public Iterator<Vector> iterator() {
     final int[] index = {0};
     return Iterators.concat(
-        new AbstractIterator<WeightedVector>() {
-          Iterator<WeightedVector> data =
-              FastProjectionSearch.this.data.iterator();
+        new AbstractIterator<Vector>() {
+          Iterator<Vector> data =
+              FastProjectionSearch.this.referenceVectors.iterator();
 
           @Override
-          protected WeightedVector computeNext() {
+          protected Vector computeNext() {
             if (!data.hasNext()) {
               return endOfData();
             } else {
               // get the next vector
-              WeightedVector v = data.next();
+              Vector v = data.next();
               // but skip over deleted vectors
               while (Double.isNaN(v.get(0)) && data.hasNext()) {
                 v = data.next();
@@ -318,12 +313,13 @@ public class FastProjectionSearch extends UpdatableSearcher implements
             }
           }
         },
-        pendingAdditions.iterator());
+        pendingReferenceVectors.iterator()
+    );
   }
 
   @Override
   public void clear() {
-    data.clear();
+    referenceVectors.clear();
     vectorIds.clear();
     projections.clear();
     dirty = false;

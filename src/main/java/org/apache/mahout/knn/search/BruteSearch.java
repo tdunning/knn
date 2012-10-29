@@ -20,10 +20,7 @@ package org.apache.mahout.knn.search;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import com.google.common.collect.Queues;
 import org.apache.mahout.common.distance.DistanceMeasure;
-import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
-import org.apache.mahout.common.distance.WeightedEuclideanDistanceMeasure;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.WeightedVector;
 import org.apache.mahout.math.random.WeightedThing;
@@ -38,33 +35,19 @@ import java.util.concurrent.Executors;
  * the references and comparing each vector to the query).
  */
 public class BruteSearch extends UpdatableSearcher {
-  // matrix of vectors for comparison
-  private final List<WeightedVector> referenceVectors;
-
-  private DistanceMeasure metric;
-
-  private BruteSearch(Iterable<WeightedVector> referenceVectors,
-                      Vector weight) {
-    this.referenceVectors = Lists.newArrayList(referenceVectors);
-
-    WeightedEuclideanDistanceMeasure m = new WeightedEuclideanDistanceMeasure();
-    m.setWeights(weight);
-    metric = m;
-  }
+  /**
+   * The list of reference vectors.
+   */
+  private List<Vector> referenceVectors;
 
   public BruteSearch(DistanceMeasure distanceMeasure) {
-    this.metric = distanceMeasure;
+    super(distanceMeasure);
     referenceVectors = Lists.newArrayList();
   }
 
-  public BruteSearch(Iterable<WeightedVector> referenceVectors) {
-    this(referenceVectors, null);
-    metric = new EuclideanDistanceMeasure();
-  }
-
   @Override
-  public void add(WeightedVector v) {
-    referenceVectors.add((WeightedVector)v.clone());
+  public void add(Vector v) {
+    referenceVectors.add(v);
   }
 
   @Override
@@ -81,18 +64,19 @@ public class BruteSearch extends UpdatableSearcher {
    * @param limit The number of results to returned; must be at least 1.
    * @return A list of the closest @limit neighbors for the given query.
    */
-  public List<WeightedThing<WeightedVector>> search(Vector query, int limit) {
+  public List<WeightedThing<Vector>> search(Vector query, int limit) {
     Preconditions.checkArgument(limit > 0);
+    limit = Math.min(limit, referenceVectors.size());
     // A priority queue of the best @limit elements, ordered from worst to best so that the worst
     // element is always on top and can easily be removed.
     PriorityQueue<WeightedThing<Integer>> bestNeighbors = new
         PriorityQueue<WeightedThing<Integer>>(limit, Ordering.natural().reverse());
     // The reulting list of weighted WeightedVectors (the weight is the distance from the query).
-    List<WeightedThing<WeightedVector>> results =
+    List<WeightedThing<Vector>> results =
         Lists.newArrayListWithCapacity(limit);
     int rowNumber = 0;
-    for (WeightedVector row : referenceVectors) {
-      double distance = metric.distance(query, row);
+    for (Vector row : referenceVectors) {
+      double distance = distanceMeasure.distance(query, row);
       // Only add a new neighbor if the result is better than the worst element
       // in the queue or the queue isn't full.
       if (bestNeighbors.size() < limit || bestNeighbors.peek().getWeight() > distance) {
@@ -109,24 +93,8 @@ public class BruteSearch extends UpdatableSearcher {
     }
     for (int i = limit - 1; i >= 0; --i) {
       WeightedThing<Integer> neighbor = bestNeighbors.poll();
-      results.set(i, new WeightedThing<WeightedVector>(
+      results.set(i, new WeightedThing<Vector>(
           referenceVectors.get(neighbor.getValue()), neighbor.getWeight()));
-    }
-    return results;
-  }
-
-  /**
-   * Searches a full list of queries.
-   *
-   * @param queries The queries to search for.
-   * @param limit The number of results to return for each query.
-   * @return A list of result lists.
-   */
-  public List<List<WeightedThing<WeightedVector>>> search(Iterable<WeightedVector> queries,
-                                                          int limit) {
-    List<List<WeightedThing<WeightedVector>>> results = Lists.newArrayList();
-    for (WeightedVector query : queries) {
-      results.add(search(query, limit));
     }
     return results;
   }
@@ -139,12 +107,12 @@ public class BruteSearch extends UpdatableSearcher {
    * @param numThreads   Number of threads to use in searching.
    * @return A list of result lists.
    */
-  public List<List<WeightedThing<WeightedVector>>> search(Iterable<WeightedVector> queries,
-                                                          final int limit, int numThreads) {
+  public List<List<WeightedThing<Vector>>> search(Iterable<WeightedVector> queries,
+                                                  final int limit, int numThreads) {
     ExecutorService es = Executors.newFixedThreadPool(numThreads);
     List<Callable<Object>> tasks = Lists.newArrayList();
 
-    final List<List<WeightedThing<WeightedVector>>> results = Lists.newArrayList();
+    final List<List<WeightedThing<Vector>>> results = Lists.newArrayList();
     int i = 0;
     for (final Vector query : queries) {
       results.add(null);
@@ -169,15 +137,15 @@ public class BruteSearch extends UpdatableSearcher {
   }
 
   @Override
-  public Iterator<WeightedVector> iterator() {
+  public Iterator<Vector> iterator() {
     return referenceVectors.iterator();
   }
 
   @Override
-  public boolean remove(WeightedVector query, double epsilon) {
+  public boolean remove(Vector query, double epsilon) {
     int rowNumber = 0;
-    for (WeightedVector row : referenceVectors) {
-      double distance = metric.distance(query, row);
+    for (Vector row : referenceVectors) {
+      double distance = distanceMeasure.distance(query, row);
       if (distance < epsilon) {
         referenceVectors.remove(rowNumber);
         return true;

@@ -17,15 +17,21 @@
 
 package org.apache.mahout.knn.search;
 
-import org.apache.mahout.math.WeightedVector;
+import org.apache.mahout.common.distance.DistanceMeasure;
+import org.apache.mahout.math.Vector;
 
 /**
  * Describes how we search vectors.  A class should extend UpdatableSearch only if it can handle a remove function.
  */
 public abstract class UpdatableSearcher extends Searcher {
-    @Override
-    public abstract boolean remove(WeightedVector v, double epsilon);
 
-    @Override
-    public abstract void clear();
+  public UpdatableSearcher(DistanceMeasure distanceMeasure) {
+   super(distanceMeasure);
+  }
+
+  @Override
+  public abstract boolean remove(Vector v, double epsilon);
+
+  @Override
+  public abstract void clear();
 }
