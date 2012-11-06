@@ -17,41 +17,49 @@
 
 package org.apache.mahout.knn;
 
-import org.apache.mahout.knn.generate.MultiNormal;
-import org.apache.mahout.knn.generate.Sampler;
-import org.apache.mahout.knn.search.Brute;
+
+import com.google.common.collect.Lists;
+import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
+import org.apache.mahout.knn.search.BruteSearch;
 import org.apache.mahout.math.ConstantVector;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.Matrix;
-import org.apache.mahout.math.MatrixSlice;
 import org.apache.mahout.math.Vector;
+import org.apache.mahout.math.random.MultiNormal;
+import org.apache.mahout.math.random.Sampler;
+import org.apache.mahout.math.WeightedVector;
 
-/**
- * Tests brute force search speed.
- */
+import java.util.List;
+
 public class BruteSpeedCheck {
-  public static void main(String[] args) {
-    Sampler<Vector> rand = new MultiNormal(new ConstantVector(1, 250));
-    Matrix ref = new DenseMatrix(10000, 250);
-    for (MatrixSlice slice : ref) {
-      slice.vector().assign(rand.sample());
-    }
-    System.out.printf("generated reference matrix\n");
+  private static final int VECTOR_DIMENSION = 250;
+  private static final int REFERENCE_SIZE = 10000;
+  private static final int QUERY_SIZE = 100;
 
-    Matrix query = new DenseMatrix(100, 250);
-    for (MatrixSlice slice : query) {
-      slice.vector().assign(rand.sample());
+  public static void main(String[] args) {
+    Sampler<Vector> rand = new MultiNormal(new ConstantVector(1, VECTOR_DIMENSION));
+    List<WeightedVector> referenceVectors = Lists.newArrayListWithExpectedSize(REFERENCE_SIZE);
+    for (int i = 0; i < REFERENCE_SIZE; ++i) {
+      referenceVectors.add(new WeightedVector(rand.sample(), 1, i));
     }
-    System.out.printf("generated query matrix\n");
+    System.out.printf("Generated reference matrix.\n");
+
+    List<WeightedVector> queryVectors = Lists.newArrayListWithExpectedSize(QUERY_SIZE);
+    for (int i = 0; i < QUERY_SIZE; ++i) {
+      queryVectors.add(new WeightedVector(rand.sample(), 1, i));
+    }
+    System.out.printf("Generated query matrix.\n");
 
     for (int threads : new int[]{1, 2, 3, 4, 5, 6, 10, 20, 50}) {
       for (int block : new int[]{1, 10, 50}) {
-        Brute search = new Brute(ref);
+        BruteSearch search = new BruteSearch(new EuclideanDistanceMeasure());
+        search.addAll(referenceVectors);
         long t0 = System.nanoTime();
-        search.search(query, block, threads);
+        search.search(queryVectors, block, threads);
         long t1 = System.nanoTime();
         System.out.printf("%d\t%d\t%.2f\n", threads, block, (t1 - t0) / 1e9);
       }
     }
   }
 }
+

@@ -15,30 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.knn.search;
+package org.apache.mahout.knn.cluster;
 
-import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
-import org.apache.mahout.knn.Searcher;
-import org.apache.mahout.knn.legacy.ProjectionSearch3;
-import org.apache.mahout.math.Matrix;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.mahout.math.Centroid;
 import org.apache.mahout.math.MatrixSlice;
-import org.junit.BeforeClass;
 
-public class ProjectionSearch3Test extends AbstractSearchTest {
-    private static Matrix data;
+import java.util.List;
 
-    @BeforeClass
-    public static void setUp() {
-        data = randomData();
-    }
-
-    @Override
-    public Iterable<MatrixSlice> testData() {
-        return data;
-    }
-
-    @Override
-    public Searcher getSearch(int n) {
-        return new ProjectionSearch3(n, new EuclideanDistanceMeasure(), 4, 20);
-    }
+public class StreamingKMeansMap extends Mapper<Integer, Iterable<MatrixSlice>, Integer, List<Centroid>> {
 }

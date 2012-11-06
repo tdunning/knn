@@ -17,18 +17,10 @@
 
 package org.apache.mahout.knn.cluster;
 
-import org.apache.mahout.knn.Centroid;
-import org.apache.mahout.knn.generate.MultiNormal;
-import org.apache.mahout.math.ConstantVector;
-import org.apache.mahout.math.DenseMatrix;
-import org.apache.mahout.math.DenseVector;
-import org.apache.mahout.math.Matrix;
-import org.apache.mahout.math.MatrixSlice;
-import org.apache.mahout.math.SingularValueDecomposition;
-import org.apache.mahout.math.Vector;
+import org.apache.mahout.math.*;
 import org.apache.mahout.math.function.Functions;
 import org.apache.mahout.math.function.VectorFunction;
-import org.junit.Assert;
+import org.apache.mahout.math.random.MultiNormal;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;

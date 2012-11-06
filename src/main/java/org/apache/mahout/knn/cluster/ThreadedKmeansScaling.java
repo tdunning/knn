@@ -22,20 +22,14 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
-import org.apache.mahout.knn.WeightedVector;
-import org.apache.mahout.knn.generate.ChineseRestaurant;
-import org.apache.mahout.knn.generate.MultiNormal;
-import org.apache.mahout.knn.generate.Sampler;
-import org.apache.mahout.knn.search.Brute;
-import org.apache.mahout.knn.search.LocalitySensitiveHash;
+import org.apache.mahout.knn.search.LocalitySensitiveHashSearch;
 import org.apache.mahout.knn.search.ProjectionSearch;
-import org.apache.mahout.knn.Searcher;
-import org.apache.mahout.knn.UpdatableSearcher;
-import org.apache.mahout.math.DenseMatrix;
-import org.apache.mahout.math.DenseVector;
-import org.apache.mahout.math.Matrix;
-import org.apache.mahout.math.MatrixSlice;
-import org.apache.mahout.math.Vector;
+import org.apache.mahout.knn.search.Searcher;
+import org.apache.mahout.knn.search.UpdatableSearcher;
+import org.apache.mahout.math.*;
+import org.apache.mahout.math.random.ChineseRestaurant;
+import org.apache.mahout.math.random.MultiNormal;
+import org.apache.mahout.math.random.Sampler;
 import org.apache.mahout.math.stats.OnlineSummarizer;
 
 import java.util.Collections;
@@ -46,6 +40,7 @@ import java.util.concurrent.ExecutionException;
 /**
  * Demonstrate scaling performance.
  */
+/*
 public class ThreadedKmeansScaling {
     private static final int QUERIES = 20;
     private static final int SEARCH_SIZE = 300;
@@ -77,16 +72,16 @@ public class ThreadedKmeansScaling {
         for (int i = 0; i < 4; i++) {
             for (int threads = 1; threads <= processors + 1; threads++) {
                 for (int splits : new int[]{threads, 2 * threads}) {
-                    clusterCheck(mean, "projection", data, new StreamingKmeans.SearchFactory() {
+                    clusterCheck(mean, "projection", data, new OldStreamingKmeans.SearchFactory() {
                         @Override
                         public UpdatableSearcher create() {
                             return new ProjectionSearch(3, distance, 4, 10);
                         }
                     }, threads, splits);
-                    clusterCheck(mean, "lsh", data, new StreamingKmeans.SearchFactory() {
+                    clusterCheck(mean, "lsh", data, new OldStreamingKmeans.SearchFactory() {
                         @Override
                         public UpdatableSearcher create() {
-                            return new LocalitySensitiveHash(3, distance, 10);
+                            return new LocalitySensitiveHashSearch(3, distance, 10);
                         }
                     }, threads, splits);
 
@@ -95,7 +90,7 @@ public class ThreadedKmeansScaling {
         }
     }
 
-    private void clusterCheck(Matrix mean, String title, Matrix original, StreamingKmeans.SearchFactory searchFactory, int threads, int splits) throws ExecutionException, InterruptedException {
+    private void clusterCheck(Matrix mean, String title, Matrix original, OldStreamingKmeans.SearchFactory searchFactory, int threads, int splits) throws ExecutionException, InterruptedException {
         List<Iterable<MatrixSlice>> data = Lists.newArrayList();
         int width = original.columnSize();
         int rowsPerSplit = (original.rowSize() + splits - 1) / splits;
@@ -215,14 +210,14 @@ public class ThreadedKmeansScaling {
         final int width = 30;
         final EuclideanDistanceMeasure distance = new EuclideanDistanceMeasure();
 
-        final StreamingKmeans.SearchFactory psFactory = new StreamingKmeans.SearchFactory() {
+        final OldStreamingKmeans.SearchFactory psFactory = new OldStreamingKmeans.SearchFactory() {
             @Override
             public UpdatableSearcher create() {
                 return new ProjectionSearch(width, distance, 4, 10);
             }
         };
 
-        final StreamingKmeans.SearchFactory bruteFactory = new StreamingKmeans.SearchFactory() {
+        final OldStreamingKmeans.SearchFactory bruteFactory = new OldStreamingKmeans.SearchFactory() {
             @Override
             public UpdatableSearcher create() {
                 return new ProjectionSearch(width, distance, 10, 20);
@@ -230,7 +225,7 @@ public class ThreadedKmeansScaling {
         };
 
         long t4 = System.currentTimeMillis();
-        Searcher y = new StreamingKmeans().cluster(data, 200, psFactory);
+        Searcher y = new OldStreamingKmeans().cluster(data, 200, psFactory);
         long t5 = System.currentTimeMillis();
         double[] refRMSE = rmse(test, y);
 
@@ -325,3 +320,4 @@ public class ThreadedKmeansScaling {
         testCluster(rows);
     }
 }
+*/
