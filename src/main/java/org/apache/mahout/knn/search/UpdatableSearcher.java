@@ -15,35 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.mahout.knn.generate;
+package org.apache.mahout.knn.search;
+
+import org.apache.mahout.common.distance.DistanceMeasure;
+import org.apache.mahout.math.Vector;
 
 /**
- * Handy for creating multinomial distributions of things.
- *
- * Moved to Mahout math as part of MAHOUT-1059
+ * Describes how we search vectors.  A class should extend UpdatableSearch only if it can handle a remove function.
  */
-public class WeightedThing<T> implements Comparable<WeightedThing<T>> {
-    private double weight;
-    private final T value;
+public abstract class UpdatableSearcher extends Searcher {
 
-    public WeightedThing(T thing, double weight) {
-        this.value = thing;
-        this.weight = weight;
-    }
+  public UpdatableSearcher(DistanceMeasure distanceMeasure) {
+   super(distanceMeasure);
+  }
 
-    public T getValue() {
-        return value;
-    }
+  @Override
+  public abstract boolean remove(Vector v, double epsilon);
 
-    public double getWeight() {
-        return weight;
-    }
-
-    public void setWeight(double weight) {
-        this.weight = weight;
-    }
-
-    public int compareTo(WeightedThing<T> other) {
-        return Double.compare(this.weight, other.weight);
-    }
+  @Override
+  public abstract void clear();
 }

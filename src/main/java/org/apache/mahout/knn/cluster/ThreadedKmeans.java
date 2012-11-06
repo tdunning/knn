@@ -20,7 +20,7 @@ package org.apache.mahout.knn.cluster;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.apache.mahout.common.distance.DistanceMeasure;
-import org.apache.mahout.knn.Searcher;
+import org.apache.mahout.knn.search.Searcher;
 import org.apache.mahout.math.DenseMatrix;
 import org.apache.mahout.math.Matrix;
 import org.apache.mahout.math.MatrixSlice;
@@ -34,8 +34,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 public class ThreadedKmeans {
-
-    public Searcher cluster(final DistanceMeasure distance, List<Iterable<MatrixSlice>> data, final int maxClusters, final int threads, final StreamingKmeans.SearchFactory centroidFactory) throws InterruptedException, ExecutionException {
+/*
+    public Searcher cluster(final DistanceMeasure distance, List<Iterable<MatrixSlice>> data, final int maxClusters, final int threads, final OldStreamingKmeans.SearchFactory centroidFactory) throws InterruptedException, ExecutionException {
         // initialize scale
         int i = 0;
         final int width = data.get(0).iterator().next().vector().size();
@@ -51,7 +51,7 @@ public class ThreadedKmeans {
             tasks.add(new Callable<Searcher>() {
                 @Override
                 public Searcher call() {
-                    return new StreamingKmeans().cluster(split, maxClusters, centroidFactory);
+                    return new OldStreamingKmeans().cluster(split, maxClusters, centroidFactory);
                 }
             });
         }
@@ -63,7 +63,7 @@ public class ThreadedKmeans {
             Iterables.addAll(raw, result.get());
         }
 
-        return new StreamingKmeans().cluster(raw, data.size() * maxClusters, centroidFactory);
+        return new OldStreamingKmeans().cluster(raw, data.size() * maxClusters, centroidFactory);
     }
 
     public static List<Iterable<MatrixSlice>> split(Iterable<MatrixSlice> data, int threads) {
@@ -95,4 +95,5 @@ public class ThreadedKmeans {
 
         return r;
     }
+    */
 }
