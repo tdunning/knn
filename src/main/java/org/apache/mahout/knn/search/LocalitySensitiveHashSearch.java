@@ -1,9 +1,8 @@
 package org.apache.mahout.knn.search;
 
-import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Ordering;
-import com.google.common.collect.Sets;
+import com.google.common.base.Function;
+import com.google.common.collect.*;
+import com.sun.istack.internal.Nullable;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.math.*;
@@ -122,7 +121,13 @@ public class LocalitySensitiveHashSearch extends UpdatableSearcher implements It
       }
     }
 
-    List<WeightedThing<Vector>> r = Lists.newArrayList(top);
+    List<WeightedThing<Vector>> r = Lists.newArrayList(Iterables.transform(top, new Function<WeightedThing<Vector>, WeightedThing<Vector>>() {
+      @Override
+      public WeightedThing<Vector> apply(@Nullable WeightedThing<Vector> input) {
+        return new WeightedThing<Vector>(((HashedVector)(input.getValue())).getVector(),
+            input.getWeight());
+      }
+    }));
     Collections.sort(r);
     return r.subList(0, numberOfNeighbors);
   }
@@ -130,12 +135,7 @@ public class LocalitySensitiveHashSearch extends UpdatableSearcher implements It
 
   @Override
   public void add(Vector v) {
-    if (v instanceof WeightedVector) {
-      trainingVectors.add(new HashedVector(((WeightedVector) v).getVector(), projection,
-          ((WeightedVector) v).getIndex(), BITMASK));
-    } else {
-      trainingVectors.add(new HashedVector(v, projection, HashedVector.INVALID_INDEX, BITMASK));
-    }
+    trainingVectors.add(new HashedVector(v, projection, HashedVector.INVALID_INDEX, BITMASK));
   }
 
 
@@ -172,7 +172,7 @@ public class LocalitySensitiveHashSearch extends UpdatableSearcher implements It
         if (!data.hasNext()) {
           return endOfData();
         } else {
-          return data.next();
+          return data.next().getVector();
         }
       }
     };

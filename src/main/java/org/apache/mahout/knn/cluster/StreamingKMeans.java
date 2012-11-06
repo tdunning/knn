@@ -17,31 +17,32 @@
 
 package org.apache.mahout.knn.cluster;
 
+import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Queues;
+import com.sun.istack.internal.Nullable;
 import org.apache.mahout.common.RandomUtils;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
-import org.apache.mahout.knn.search.BruteSearch;
-import org.apache.mahout.knn.search.ProjectionSearch;
-import org.apache.mahout.knn.search.Searcher;
-import org.apache.mahout.knn.search.UpdatableSearcher;
-import org.apache.mahout.math.Centroid;
-import org.apache.mahout.math.WeightedVector;
+import org.apache.mahout.knn.search.*;
+import org.apache.mahout.math.*;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.random.WeightedThing;
 
 import java.util.*;
 
 public class StreamingKMeans {
-  // this parameter should be greater than 1, but not too much greater.
-  // keeping BETA small makes the characteristic size grow more slowly
-  // and small values of characteristic size seem to make the clustering
-  // a bit better.  Too small a value of BETA, however, means that we
-  // have to collapse the set of centroids too often.
-  private static final double BETA = 1.3;
+  private double beta;
 
-  private static final int TOP_MAX_SIZE = 100;
+  private double clusterLogFactor;
+
+  private double clusterOvershoot;
+
+  private int numClusters;
+  private int maxClusters;
+
+  private UpdatableSearcher centroids;
 
   // this is the current value of the characteristic size.  Points
   // which are much closer than this to a centroid will stick to it
@@ -49,85 +50,195 @@ public class StreamingKMeans {
   // form a new cluster.
   private double distanceCutoff = Double.MAX_VALUE;
 
-  private DistanceMeasure distanceMeasure;
+  private int maxNumEstimateDistanceCutoffPoints = 1024;
+  ArrayDeque<Vector> estimateDistanceCutoffPoints;
 
-  private UpdatableSearcher centroids;
+  // Distance measure being used.
+  private DistanceMeasure distanceMeasure = new EuclideanDistanceMeasure();
 
-  private int maxClusters;
-
-  public StreamingKMeans(int dimension, final DistanceMeasure distance, int maxClusters) {
-    this(distance, new ProjectionSearch(distance, dimension, 10, 20), maxClusters);
+  /**
+   * Creates a new StreamingKMeans class given a searcher and the number of clusters to generate.
+   *
+   * @param searcher A Searcher that is used for performing nearest neighbor search. It must be
+   *                 empty initially because it will be used to keep track of the cluster
+   *                 centroids.
+   * @param numClusters The number of clusters to generate for the data points. This can be
+   *                    adjusted.
+   */
+  public StreamingKMeans(UpdatableSearcher searcher, int numClusters) {
+    this(searcher, numClusters, 1.3, 10, 0.2);
   }
 
-  public StreamingKMeans(final DistanceMeasure distance, UpdatableSearcher searcher, int maxClusters) {
+  /**
+   *
+   * @param searcher
+   * @param numClusters
+   * @param beta
+   * @param clusterLogFactor
+   * @param clusterOvershoot
+   */
+  public StreamingKMeans(UpdatableSearcher searcher, int numClusters, double beta,
+                         double clusterLogFactor, double clusterOvershoot) {
+    this.centroids = searcher;
+    this.numClusters = numClusters;
+    this.maxClusters = numClusters;
+    this.beta = beta;
+    this.clusterLogFactor = clusterLogFactor;
+    this.clusterOvershoot = clusterOvershoot;
+    this.estimateDistanceCutoffPoints = Queues.newArrayDeque();
   }
 
-  public Searcher cluster(WeightedVector datapoint) {
-    List<WeightedVector> data = Lists.newArrayList();
-    data.add(datapoint);
-    return cluster(data);
-  }
-
-  public Searcher cluster(Iterable<WeightedVector> data) {
-    return clusterInternal(data, 1);
-  }
-
-  private void estimateCutoff(Iterable<WeightedVector> data) {
-    int i = 0;
-    for (WeightedVector v1 : data) {
-      for (WeightedVector v2 : Iterables.skip(data, i + 1)) {
-        double distance = distanceMeasure.distance(v1, v2);
-        if (distance > 0 && distance < distanceCutoff) {
-          distance =  distanceCutoff;
+  public double estimateDistanceCutoff(Iterable<? extends WeightedVector> datapoints) {
+    datapoints = Iterables.limit(datapoints, 100);
+    double distance;
+    int i = 1;
+    for (WeightedVector datapoint : datapoints) {
+      for (WeightedVector v : Iterables.skip(datapoints, i)) {
+        distance = distanceMeasure.distance(datapoint, v);
+        if (distance < distanceCutoff) {
+          distanceCutoff = distance;
         }
       }
       ++i;
     }
+    i = 1;
+    for (WeightedVector datapoint : datapoints) {
+      for (Vector v : Iterables.skip(estimateDistanceCutoffPoints, i)) {
+        distance = distanceMeasure.distance(datapoint, v);
+        if (distance < distanceCutoff) {
+          distanceCutoff = distance;
+        }
+      }
+      ++i;
+    }
+    for (WeightedVector datapoint : datapoints) {
+      if (estimateDistanceCutoffPoints.size() >= maxNumEstimateDistanceCutoffPoints) {
+        estimateDistanceCutoffPoints.removeFirst();
+      }
+      estimateDistanceCutoffPoints.addLast(datapoint);
+    }
+    return distanceCutoff;
   }
 
-  private UpdatableSearcher clusterInternal(Iterable<WeightedVector> data, int depth) {
+  public UpdatableSearcher getCentroids() {
+    return centroids;
+  }
 
-    // to cluster, we scan the data and either add each point to the nearest group or create a new group.
-    // when we get too many groups, we need to increase the threshold and rescan our current groups
+  public Iterable<Centroid> getCentroidsIterable() {
+    return Iterables.transform(centroids, new Function<Vector, Centroid>() {
+      @Override
+      public Centroid apply(@Nullable Vector input) {
+        return (Centroid)input;
+      }
+    });
+  }
+
+  // We can assume that for normal rows of a matrix, their weights are 1 because they represent
+  // an individual vector.
+  public UpdatableSearcher cluster(Matrix data) {
+    return cluster(Iterables.transform(data, new Function<MatrixSlice, Centroid>() {
+      @Override
+      public Centroid apply(@Nullable MatrixSlice input) {
+        // The key in a Centroid is actually the MatrixSlice's index.
+        return Centroid.create(input.index(), input.vector());
+      }
+    }));
+  }
+
+  public UpdatableSearcher cluster(Iterable<Centroid> datapoints) {
+    estimateDistanceCutoff(datapoints);
+    System.out.printf("Finished estimating distance cutoff to %f\n", distanceCutoff);
+    return clusterInternal(datapoints, false);
+  }
+
+  public UpdatableSearcher cluster(Centroid v) {
+    List<Centroid> datapoints = Lists.newArrayList();
+    datapoints.add(v);
+    return cluster(datapoints);
+  }
+
+  public int getNumClusters() {
+    return numClusters;
+  }
+
+  public void setNumClusters(int numClusters) {
+    this.numClusters = numClusters;
+  }
+
+  private UpdatableSearcher clusterInternal(Iterable<Centroid> datapoints,
+                                            boolean collapseClusters) {
+    // We clear the centroids we have in case of cluster collapse, the old clusters are the
+    // datapoints but we need to re-cluster them.
+    if (collapseClusters) {
+      centroids.clear();
+    }
+    if (centroids.size() == 0) {
+      // Assign the first datapoint to the first cluster.
+      // Adding a vector to a searcher would normally just reference the copy,
+      // but we could potentially mutate it and so we need to make a clone.
+      centroids.add(Iterables.get(datapoints, 0).clone());
+    }
+
     Random rand = RandomUtils.getRandom();
-    int n = 0;
-    centroids.add(Centroid.create(0, Iterables.get(data, 0)));
+    int numProcessedDataPoints = 1;
+    // To cluster, we scan the data and either add each point to the nearest group or create a new group.
+    // when we get too many groups, we need to increase the threshold and rescan our current groups
+    for (WeightedVector row : Iterables.skip(datapoints, 1)) {
+      // Get the closest vector and its weight as a WeightedThing<Vector>.
+      // The weight of the WeightedThing is the distance to the query and the value is a
+      // reference to one of the vectors we added to the searcher previously.
+      WeightedThing<Vector> closestPair = centroids.search(row, 1).get(0);
 
-    for (WeightedVector row : Iterables.skip(data, 1)) {
-      // estimate distance d to closest centroid
-      WeightedVector closest = (WeightedVector)centroids.search(row, 1).get(0).getValue();
-
-      if (rand.nextDouble() < closest.getWeight() / distanceCutoff) {
-        // add new centroid, note that the vector is copied because we may mutate it later
-        centroids.add(Centroid.create(centroids.size(), row));
+      // We get a uniformly distributed random number between 0 and 1 and compare it with the
+      // distance to the closest cluster divided by the distanceCutoff.
+      // This is so that if the closest cluster is further than distanceCutoff,
+      // closestPair.getWeight() / distanceCutoff > 1 which will trigger the creation of a new
+      // cluster anyway.
+      // However, if the ratio is less than 1, we want to create a new cluster with probability
+      // proportional to the distance to the closest cluster.
+      if (rand.nextDouble() < closestPair.getWeight() / distanceCutoff) {
+        // Add new centroid, note that the vector is copied because we may mutate it later.
+        centroids.add(row.clone());
       } else {
-        // merge against existing
-        Centroid c = (Centroid) closest.getVector();
-        centroids.remove(c, 1e-7);
-        c.update(row);
-        centroids.add(c);
+        // Merge the new point with the existing centroid. This will update the centroid's actual
+        // position.
+        // We know that all the points we inserted in the centroids searcher are (or extend)
+        // WeightedVector, so the cast will always succeed.
+        Centroid centroid = (Centroid)closestPair.getValue();
+        // We will update the centroid by removing it from the searcher and reinserting it to
+        // ensure consistency.
+        centroids.remove(centroid, 1e-7);
+        centroid.update(row);
+        centroids.add(centroid);
       }
 
-      if (depth < 2 && centroids.size() > maxClusters) {
-        maxClusters = (int) Math.max(maxClusters, 10 * Math.log(n));
+      if (!collapseClusters && centroids.size() > maxClusters) {
+        maxClusters = (int) Math.max(maxClusters,
+            clusterLogFactor * Math.log (numProcessedDataPoints));
+
         // TODO does shuffling help?
-        List<WeightedVector> shuffled = Lists.newArrayList();
+        List<Centroid> shuffled = Lists.newArrayList();
         for (Vector v : centroids) {
-          shuffled.add((WeightedVector)v);
+          shuffled.add((Centroid)v);
         }
         Collections.shuffle(shuffled);
-        centroids = clusterInternal(shuffled, depth + 1);
+        // Re-cluster using the shuffled centroids as data points. The centroids member variable
+        // is modified directly.
+        clusterInternal(shuffled, true);
 
-        // in the original algorithm, with distributions with sharp scale effects, the
+        // In the original algorithm, with distributions with sharp scale effects, the
         // distanceCutoff can grow to excessive size leading sub-clustering to collapse
         // the centroids set too much. This test prevents increase in distanceCutoff
         // the current value is doing fine at collapsing the clusters.
-        if (centroids.size() > 0.2 * maxClusters) {
-          distanceCutoff *= BETA;
+        if (centroids.size() > clusterOvershoot * maxClusters) {
+          distanceCutoff *= beta;
         }
       }
-      n++;
+      ++numProcessedDataPoints;
     }
+
+    // Normally, iterating through the searcher produces Vectors,
+    // but since we always used Centroids, we adapt the return type.
     return centroids;
   }
 }
