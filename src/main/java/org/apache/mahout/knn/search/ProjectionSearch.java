@@ -55,6 +55,10 @@ public class ProjectionSearch extends UpdatableSearcher implements Iterable<Vect
    */
   private int searchSize;
 
+  private int numDimensions;
+  private int numProjections;
+  private boolean initialized = false;
+
   static List<Vector> generateBasis(int numDimensions, int numProjections) {
     final DoubleFunction random = Functions.random();
     List<Vector> basisVectors = Lists.newArrayList();
@@ -67,18 +71,24 @@ public class ProjectionSearch extends UpdatableSearcher implements Iterable<Vect
     return  basisVectors;
   }
 
-  public ProjectionSearch(DistanceMeasure distanceMeasure, int numDimensions,
-                          int numProjections,  int searchSize) {
-    super(distanceMeasure);
-    Preconditions.checkArgument(numProjections > 0 && numProjections < 100,
-        "Unreasonable value for number of projections");
-
-    this.searchSize = searchSize;
+  private void initialize(int numDimensions) {
+    if (initialized)
+      return;
+    initialized = true;
     basisVectors = generateBasis(numDimensions, numProjections);
     scalarProjections = Lists.newArrayList();
     for (int i = 0; i < numProjections; ++i) {
       scalarProjections.add(Sets.<WeightedThing<Vector>>newTreeSet());
     }
+  }
+
+  public ProjectionSearch(DistanceMeasure distanceMeasure, int numProjections,  int searchSize) {
+    super(distanceMeasure);
+    Preconditions.checkArgument(numProjections > 0 && numProjections < 100,
+        "Unreasonable value for number of projections");
+
+    this.searchSize = searchSize;
+    this.numProjections = numProjections;
   }
 
   /**
@@ -87,6 +97,7 @@ public class ProjectionSearch extends UpdatableSearcher implements Iterable<Vect
    */
   @Override
   public void add(Vector v) {
+    initialize(v.size());
     Preconditions.checkArgument(v.size() == basisVectors.get(0).size(),
         "Invalid dimension of vector to add. " +
             "Expected " + Integer.toString(basisVectors.get(0).size()) +
@@ -112,6 +123,8 @@ public class ProjectionSearch extends UpdatableSearcher implements Iterable<Vect
    * @return  The number of scalarProjections added to the search so far.
    */
   public int size() {
+    if (scalarProjections == null)
+      return 0;
     return scalarProjections.get(0).size();
   }
 

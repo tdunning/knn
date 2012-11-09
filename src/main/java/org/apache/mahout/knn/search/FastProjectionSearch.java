@@ -76,14 +76,24 @@ public class FastProjectionSearch extends UpdatableSearcher implements Iterable<
   // we do a full index
   private int pendingRemovals = 0;
 
-  public FastProjectionSearch(DistanceMeasure distanceMeasure, int numDimensions,
-                              int numProjections, int searchSize) {
+  private int numProjections;
+  private boolean initialized = false;
+
+  public FastProjectionSearch(DistanceMeasure distanceMeasure,  int numProjections, int searchSize) {
     super(distanceMeasure);
     Preconditions.checkArgument(numProjections > 0 && numProjections < 100,
         "Unreasonable value for number of projections");
     this.searchSize = searchSize;
-    basisVectors = ProjectionSearch.generateBasis(numDimensions, numProjections);
+    this.numProjections = numProjections;
+    basisVectors = null; // ProjectionSearch.generateBasis(numDimensions, numProjections);
 
+  }
+
+  private void initialize(int numDimensions) {
+    if (initialized)
+      return;
+    initialized = true;
+   ProjectionSearch.generateBasis(numDimensions, numProjections);
   }
 
   /**
@@ -93,6 +103,7 @@ public class FastProjectionSearch extends UpdatableSearcher implements Iterable<
    */
   @Override
   public void add(Vector v) {
+    initialize(v.size());
     pendingReferenceVectors.add(v);
   }
 

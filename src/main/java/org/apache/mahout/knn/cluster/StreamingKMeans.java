@@ -48,7 +48,7 @@ public class StreamingKMeans {
   // which are much closer than this to a centroid will stick to it
   // almost certainly.  Points further than this to any centroid will
   // form a new cluster.
-  private double distanceCutoff = Double.MAX_VALUE;
+  private double distanceCutoff = 10e-4;
 
   private int maxNumEstimateDistanceCutoffPoints = 1024;
   ArrayDeque<Vector> estimateDistanceCutoffPoints;
@@ -146,15 +146,34 @@ public class StreamingKMeans {
   }
 
   public UpdatableSearcher cluster(Iterable<Centroid> datapoints) {
-    estimateDistanceCutoff(datapoints);
-    System.out.printf("Finished estimating distance cutoff to %f\n", distanceCutoff);
     return clusterInternal(datapoints, false);
   }
 
-  public UpdatableSearcher cluster(Centroid v) {
-    List<Centroid> datapoints = Lists.newArrayList();
-    datapoints.add(v);
-    return cluster(datapoints);
+  public UpdatableSearcher cluster(final Centroid v) {
+    return cluster(new Iterable<Centroid>() {
+      @Override
+      public Iterator<Centroid> iterator() {
+        return new Iterator<Centroid>() {
+          private boolean accessed = false;
+
+          @Override
+          public boolean hasNext() {
+            return !accessed;
+          }
+
+          @Override
+          public Centroid next() {
+            accessed = true;
+            return v;
+          }
+
+          @Override
+          public void remove() {
+            throw new UnsupportedOperationException();
+          }
+        };
+      }
+    });
   }
 
   public int getNumClusters() {
@@ -172,18 +191,21 @@ public class StreamingKMeans {
     if (collapseClusters) {
       centroids.clear();
     }
+
+    int numCentroidsToSkip = 0;
     if (centroids.size() == 0) {
       // Assign the first datapoint to the first cluster.
       // Adding a vector to a searcher would normally just reference the copy,
       // but we could potentially mutate it and so we need to make a clone.
       centroids.add(Iterables.get(datapoints, 0).clone());
+      numCentroidsToSkip = 1;
     }
 
     Random rand = RandomUtils.getRandom();
     int numProcessedDataPoints = 1;
     // To cluster, we scan the data and either add each point to the nearest group or create a new group.
     // when we get too many groups, we need to increase the threshold and rescan our current groups
-    for (WeightedVector row : Iterables.skip(datapoints, 1)) {
+    for (WeightedVector row : Iterables.skip(datapoints, numCentroidsToSkip)) {
       // Get the closest vector and its weight as a WeightedThing<Vector>.
       // The weight of the WeightedThing is the distance to the query and the value is a
       // reference to one of the vectors we added to the searcher previously.

@@ -78,7 +78,7 @@ public class FastProjectionSearchTest extends AbstractSearchTest {
 
         BruteSearch brute = new BruteSearch(metric);
         brute.addAllMatrixSlices(m);
-        FastProjectionSearch test = new FastProjectionSearch(metric, d, 20, 20);
+        FastProjectionSearch test = new FastProjectionSearch(metric, d, 20);
         test.addAllMatrixSlices(m);
 
         int bigRatio = 0;
@@ -118,7 +118,7 @@ public class FastProjectionSearchTest extends AbstractSearchTest {
 
   @Override
   public UpdatableSearcher getSearch(int n) {
-    return new FastProjectionSearch(new EuclideanDistanceMeasure(), n, 4, 20);
+    return new FastProjectionSearch(new EuclideanDistanceMeasure(), 4, 20);
   }
 }
 

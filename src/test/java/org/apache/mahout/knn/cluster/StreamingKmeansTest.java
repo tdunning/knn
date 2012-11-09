@@ -75,14 +75,16 @@ public class StreamingKMeansTest {
 
     // cluster the data
     final EuclideanDistanceMeasure distance = new EuclideanDistanceMeasure();
-    clusterCheck(mean, "projection", data, new ProjectionSearch(distance, 3, 4, 10));
-    clusterCheck(mean, "lsh", data, new LocalitySensitiveHashSearch(distance, 3, 10));
+    clusterCheck(mean, "projection", data, new ProjectionSearch(distance, 4, 10));
+    clusterCheck(mean, "lsh", data, new LocalitySensitiveHashSearch(distance, 10));
   }
 
   private void clusterCheck(Matrix mean, String title, Matrix data, UpdatableSearcher searcher) {
     long t0 = System.currentTimeMillis();
     StreamingKMeans clusterer = new StreamingKMeans(searcher, 1000);
-    clusterer.cluster(getMatrixAsCentroids(data));
+    for (Centroid centroid : getMatrixAsCentroids(data)) {
+      clusterer.cluster(centroid);
+    }
     long t1 = System.currentTimeMillis();
 
     System.out.printf("Number of clusters %d\n", clusterer.getCentroids().size());
