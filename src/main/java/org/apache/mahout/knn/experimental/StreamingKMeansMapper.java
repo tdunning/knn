@@ -91,7 +91,7 @@ public class StreamingKMeansMapper extends Mapper<IntWritable, CentroidWritable,
     searcher = searcherFromConfiguration(conf);
     int numClusters = conf.getInt(DefaultOptionCreator.NUM_CLUSTERS_OPTION, 0);
     Preconditions.checkArgument(numClusters > 0, "No number of clusters specified.");
-    clusterer = new StreamingKMeans(searcher, numClusters);
+    clusterer = new StreamingKMeans(searcher, numClusters, 10e-3);
   }
 
   @Override

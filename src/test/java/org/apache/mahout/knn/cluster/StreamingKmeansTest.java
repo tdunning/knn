@@ -18,66 +18,61 @@
 package org.apache.mahout.knn.cluster;
 
 import com.google.common.base.Function;
+
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.sun.istack.internal.Nullable;
 import org.apache.mahout.common.Pair;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
-import org.apache.mahout.knn.SyntheticDataUtils;
 import org.apache.mahout.knn.search.*;
 // import org.apache.mahout.knn.search.Brute;
 import org.apache.mahout.math.*;
 import org.apache.mahout.math.random.WeightedThing;
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.util.List;
+import java.util.Arrays;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.junit.runners.Parameterized.Parameters;
 
 
+@RunWith(value = Parameterized.class)
 public class StreamingKMeansTest {
-  private static int NUM_DATA_POINTS = 100000;
-  private static int NUM_DIMENSIONS = 3;
-  private static int NUM_PROJECTIONS = 4;
-  private static int SEARCH_SIZE = 10;
+  private static final int NUM_DATA_POINTS = 100000;
+  private static final int NUM_DIMENSIONS = 3;
+  private static final int NUM_PROJECTIONS = 4;
+  private static final int SEARCH_SIZE = 10;
 
-  private Iterable<Centroid> getMatrixAsCentroids(Matrix m) {
-    return Iterables.transform(m, new Function<MatrixSlice, Centroid>() {
-      @Override
-      public Centroid apply(@Nullable MatrixSlice input) {
-        // The key in a Centroid is actually the MatrixSlice's index.
-        return Centroid.create(input.index(), input.vector());
-      }
-    });
+  private static Pair<List<Centroid>, List<Centroid>> syntheticData =
+      DataUtils.sampleMultiNormalHypercube(NUM_DIMENSIONS, NUM_DATA_POINTS);
+
+  private UpdatableSearcher searcher;
+
+  public StreamingKMeansTest(UpdatableSearcher searcher) {
+    this.searcher = searcher;
   }
-  @Test
-  public void testEstimateBeta() {
-    Matrix m = new DenseMatrix(8, 3);
-    for (int i = 0; i < 8; i++) {
-      m.viewRow(i).assign(new double[]{0.125 * (i & 4), i & 2, i & 1});
-    }
-    StreamingKMeans clusterer = new StreamingKMeans(new BruteSearch(new EuclideanDistanceMeasure()), 100);
-    Assert.assertEquals(0.5, clusterer.estimateDistanceCutoff(getMatrixAsCentroids(m)), 1e-9);
+
+  @Parameters
+  public static List<Object[]> generateData() {
+    return Arrays.asList(new Object[][] {
+        {new ProjectionSearch(new EuclideanDistanceMeasure(), NUM_PROJECTIONS, SEARCH_SIZE)},
+        {new FastProjectionSearch(new EuclideanDistanceMeasure(), NUM_PROJECTIONS, SEARCH_SIZE)},
+        {new LocalitySensitiveHashSearch(new EuclideanDistanceMeasure(), SEARCH_SIZE)}}
+    );
   }
 
   @Test
   public void testClustering() {
-    Pair<List<Centroid>, List<Centroid>> syntheticClusters =
-        SyntheticDataUtils.sampleMultiNormalHypercube(NUM_DIMENSIONS, NUM_DATA_POINTS);
-
-    final EuclideanDistanceMeasure distanceMeasure = new EuclideanDistanceMeasure();
-    clusterCheck(syntheticClusters, "projection", new ProjectionSearch(distanceMeasure,
-        NUM_PROJECTIONS, SEARCH_SIZE));
-    clusterCheck(syntheticClusters, "lsh", new LocalitySensitiveHashSearch(distanceMeasure,
-        SEARCH_SIZE));
-  }
-
-  private void clusterCheck(Pair<List<Centroid>, List<Centroid>> syntheticData,
-                            String title, UpdatableSearcher updatableSearcher) {
+    StreamingKMeans clusterer =
+        new StreamingKMeans(searcher, 1 << NUM_DIMENSIONS,
+            DataUtils.estimateDistanceCutoff(syntheticData.getFirst()));
     long startTime = System.currentTimeMillis();
-    StreamingKMeans clusterer = new StreamingKMeans(updatableSearcher, 1 << NUM_DIMENSIONS);
     clusterer.cluster(syntheticData.getFirst());
     long endTime = System.currentTimeMillis();
 
@@ -88,12 +83,13 @@ public class StreamingKMeansTest {
 
     // and verify that each corner of the cube has a centroid very nearby
     for (Vector mean : syntheticData.getSecond()) {
-      WeightedThing<Vector> v = updatableSearcher.search(mean, 1).get(0);
+      WeightedThing<Vector> v = searcher.search(mean, 1).get(0);
       assertTrue(v.getWeight() < 0.05);
     }
     double clusterTime = (endTime - startTime) / 1000.0;
     System.out.printf("%s\n%.2f for clustering\n%.1f us per row\n\n",
-        title, clusterTime, clusterTime / syntheticData.getFirst().size() * 1e6);
+        searcher.getClass().getName(), clusterTime,
+        clusterTime / syntheticData.getFirst().size() * 1e6);
 
     // verify that the total weight of the centroids near each corner is correct
     double[] cornerWeights = new double[1 << NUM_DIMENSIONS];
