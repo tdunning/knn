@@ -19,25 +19,30 @@ package org.apache.mahout.knn.cluster;
 
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.sun.istack.internal.Nullable;
+import org.apache.mahout.common.Pair;
 import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
+import org.apache.mahout.knn.SyntheticDataUtils;
 import org.apache.mahout.knn.search.*;
 // import org.apache.mahout.knn.search.Brute;
 import org.apache.mahout.math.*;
-import org.apache.mahout.math.random.MultiNormal;
 import org.apache.mahout.math.random.WeightedThing;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.Iterator;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 
 public class StreamingKMeansTest {
+  private static int NUM_DATA_POINTS = 100000;
+  private static int NUM_DIMENSIONS = 3;
+  private static int NUM_PROJECTIONS = 4;
+  private static int SEARCH_SIZE = 10;
+
   private Iterable<Centroid> getMatrixAsCentroids(Matrix m) {
     return Iterables.transform(m, new Function<MatrixSlice, Centroid>() {
       @Override
@@ -59,81 +64,58 @@ public class StreamingKMeansTest {
 
   @Test
   public void testClustering() {
-    // construct data samplers centered on the corners of a unit cube
-    Matrix mean = new DenseMatrix(8, 3);
-    List<MultiNormal> rowSamplers = Lists.newArrayList();
-    for (int i = 0; i < 8; i++) {
-      mean.viewRow(i).assign(new double[]{0.25 * (i & 4), 0.5 * (i & 2), i & 1});
-      rowSamplers.add(new MultiNormal(0.01, mean.viewRow(i)));
-    }
+    Pair<List<Centroid>, List<Centroid>> syntheticClusters =
+        SyntheticDataUtils.sampleMultiNormalHypercube(NUM_DIMENSIONS, NUM_DATA_POINTS);
 
-    // sample a bunch of data points
-    Matrix data = new DenseMatrix(100000, 3);
-    for (MatrixSlice row : data) {
-      row.vector().assign(rowSamplers.get(row.index() % 8).sample());
-    }
-
-    // cluster the data
-    final EuclideanDistanceMeasure distance = new EuclideanDistanceMeasure();
-    clusterCheck(mean, "projection", data, new ProjectionSearch(distance, 4, 10));
-    clusterCheck(mean, "lsh", data, new LocalitySensitiveHashSearch(distance, 10));
+    final EuclideanDistanceMeasure distanceMeasure = new EuclideanDistanceMeasure();
+    clusterCheck(syntheticClusters, "projection", new ProjectionSearch(distanceMeasure,
+        NUM_PROJECTIONS, SEARCH_SIZE));
+    clusterCheck(syntheticClusters, "lsh", new LocalitySensitiveHashSearch(distanceMeasure,
+        SEARCH_SIZE));
   }
 
-  private void clusterCheck(Matrix mean, String title, Matrix data, UpdatableSearcher searcher) {
-    long t0 = System.currentTimeMillis();
-    StreamingKMeans clusterer = new StreamingKMeans(searcher, 1000);
-    for (Centroid centroid : getMatrixAsCentroids(data)) {
-      clusterer.cluster(centroid);
-    }
-    long t1 = System.currentTimeMillis();
+  private void clusterCheck(Pair<List<Centroid>, List<Centroid>> syntheticData,
+                            String title, UpdatableSearcher updatableSearcher) {
+    long startTime = System.currentTimeMillis();
+    StreamingKMeans clusterer = new StreamingKMeans(updatableSearcher, 1 << NUM_DIMENSIONS);
+    clusterer.cluster(syntheticData.getFirst());
+    long endTime = System.currentTimeMillis();
 
-    System.out.printf("Number of clusters %d\n", clusterer.getCentroids().size());
+    System.out.printf("Total number of clusters %d\n", clusterer.getCentroids().size());
 
-    assertEquals("Total weight not preserved", totalWeightFromMatrixSlices(data),
-        totalWeight(searcher), 1e-9);
+    assertEquals("Total weight not preserved", totalWeight(clusterer.getCentroids()),
+        totalWeight(syntheticData.getFirst()), 1e-9);
 
     // and verify that each corner of the cube has a centroid very nearby
-    for (MatrixSlice row : mean) {
-      WeightedThing<Vector> v = searcher.search(row.vector(), 1).get(0);
+    for (Vector mean : syntheticData.getSecond()) {
+      WeightedThing<Vector> v = updatableSearcher.search(mean, 1).get(0);
       assertTrue(v.getWeight() < 0.05);
     }
+    double clusterTime = (endTime - startTime) / 1000.0;
     System.out.printf("%s\n%.2f for clustering\n%.1f us per row\n\n",
-        title, (t1 - t0) / 1000.0, (t1 - t0) / 1000.0 / data.rowSize() * 1e6);
+        title, clusterTime, clusterTime / syntheticData.getFirst().size() * 1e6);
 
     // verify that the total weight of the centroids near each corner is correct
-    double[] w = new double[8];
+    double[] cornerWeights = new double[1 << NUM_DIMENSIONS];
     Searcher trueFinder = new BruteSearch(new EuclideanDistanceMeasure());
-    for (MatrixSlice trueCluster : mean) {
-      trueFinder.add(
-          new WeightedVector(trueCluster.vector(), 1, trueCluster.index()));
+    for (Vector trueCluster : syntheticData.getSecond()) {
+      trueFinder.add(trueCluster);
     }
     for (Centroid centroid : clusterer.getCentroidsIterable()) {
-      WeightedThing<Vector> z = trueFinder.search(centroid, 1).get(0);
-      w[((WeightedVector)(z.getValue())).getIndex()] += centroid.getWeight();
-          //((WeightedVector)(z.getValue())).getWeight();
+      WeightedThing<Vector> closest = trueFinder.search(centroid, 1).get(0);
+      cornerWeights[((Centroid)closest.getValue()).getIndex()] += centroid.getWeight();
     }
-    for (double v : w) {
-      assertEquals(12500, v, 0);
+    int expectedNumPoints = NUM_DATA_POINTS / (1 << NUM_DIMENSIONS);
+    for (double v : cornerWeights) {
+      assertEquals(expectedNumPoints, v, 0);
     }
   }
 
-  private double totalWeightFromMatrixSlices(Iterable<MatrixSlice> data) {
-
-    double sum = 0;
-    for (MatrixSlice row : data) {
-      if (row.vector() instanceof WeightedVector) {
-        sum += ((WeightedVector) row.vector()).getWeight();
-      } else {
-        sum++;
-      }
-    }
-    return sum;
-  }
-  private double totalWeight(Iterable<Vector> data) {
+  private double totalWeight(Iterable<? extends Vector> data) {
     double sum = 0;
     for (Vector row : data) {
       if (row instanceof WeightedVector) {
-        sum += ((WeightedVector) row).getWeight();
+        sum += ((WeightedVector)row).getWeight();
       } else {
         sum++;
       }

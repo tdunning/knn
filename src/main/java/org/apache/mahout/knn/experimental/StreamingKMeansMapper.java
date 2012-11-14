@@ -79,9 +79,7 @@ public class StreamingKMeansMapper extends Mapper<IntWritable, CentroidWritable,
         throw new InstantiationException();
       }
     } catch (Exception e) {
-      e.printStackTrace();
-      log.info("Failed to instantiate searcher " + searcherClass);
-      return null;
+      throw new RuntimeException("Failed to instantiate searcher.", e);
     }
     return searcher;
   }
@@ -91,7 +89,6 @@ public class StreamingKMeansMapper extends Mapper<IntWritable, CentroidWritable,
     Configuration conf = context.getConfiguration();
     UpdatableSearcher searcher;
     searcher = searcherFromConfiguration(conf);
-    Preconditions.checkNotNull(searcher);
     int numClusters = conf.getInt(DefaultOptionCreator.NUM_CLUSTERS_OPTION, 0);
     Preconditions.checkArgument(numClusters > 0, "No number of clusters specified.");
     clusterer = new StreamingKMeans(searcher, numClusters);
