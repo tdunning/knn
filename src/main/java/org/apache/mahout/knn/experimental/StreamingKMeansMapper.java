@@ -67,7 +67,7 @@ public class StreamingKMeansMapper extends Mapper<IntWritable, CentroidWritable,
       if (searcherClass.equals(BruteSearch.class.getName())) {
         searcher = (UpdatableSearcher)Class.forName(searcherClass).getConstructor(DistanceMeasure
             .class).newInstance(distanceMeasure);
-      } else if (searcherClass.equals(FastProjectionSearch.class.getName()) ||
+      } else if (searcherClass.equals(OldFastProjectionSearch.class.getName()) ||
           searcherClass.equals(ProjectionSearch.class.getName())) {
         searcher = (UpdatableSearcher)Class.forName(searcherClass).getConstructor(DistanceMeasure
             .class, int.class, int.class).newInstance(distanceMeasure, numProjections, searchSize);

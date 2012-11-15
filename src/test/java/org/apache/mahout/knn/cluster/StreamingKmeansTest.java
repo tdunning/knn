@@ -53,17 +53,25 @@ public class StreamingKMeansTest {
       DataUtils.sampleMultiNormalHypercube(NUM_DIMENSIONS, NUM_DATA_POINTS);
 
   private UpdatableSearcher searcher;
+  private boolean allAtOnce;
 
-  public StreamingKMeansTest(UpdatableSearcher searcher) {
+  public StreamingKMeansTest(UpdatableSearcher searcher, boolean allAtOnce) {
     this.searcher = searcher;
+    this.allAtOnce = allAtOnce;
   }
 
   @Parameters
   public static List<Object[]> generateData() {
     return Arrays.asList(new Object[][] {
-        {new ProjectionSearch(new EuclideanDistanceMeasure(), NUM_PROJECTIONS, SEARCH_SIZE)},
-        {new FastProjectionSearch(new EuclideanDistanceMeasure(), NUM_PROJECTIONS, SEARCH_SIZE)},
-        {new LocalitySensitiveHashSearch(new EuclideanDistanceMeasure(), SEARCH_SIZE)}}
+        {new ProjectionSearch(new EuclideanDistanceMeasure(), NUM_PROJECTIONS, SEARCH_SIZE), true},
+        {new FastProjectionSearch(new EuclideanDistanceMeasure(), NUM_PROJECTIONS, SEARCH_SIZE),
+            true},
+        {new LocalitySensitiveHashSearch(new EuclideanDistanceMeasure(), SEARCH_SIZE), true},
+        {new ProjectionSearch(new EuclideanDistanceMeasure(), NUM_PROJECTIONS, SEARCH_SIZE), false},
+        {new FastProjectionSearch(new EuclideanDistanceMeasure(), NUM_PROJECTIONS, SEARCH_SIZE),
+            false},
+        {new LocalitySensitiveHashSearch(new EuclideanDistanceMeasure(), SEARCH_SIZE), false}
+    }
     );
   }
 
@@ -73,13 +81,19 @@ public class StreamingKMeansTest {
         new StreamingKMeans(searcher, 1 << NUM_DIMENSIONS,
             DataUtils.estimateDistanceCutoff(syntheticData.getFirst()));
     long startTime = System.currentTimeMillis();
-    clusterer.cluster(syntheticData.getFirst());
+    if (allAtOnce) {
+      clusterer.cluster(syntheticData.getFirst());
+    } else {
+      for (Centroid datapoint : syntheticData.getFirst()) {
+        clusterer.cluster(datapoint);
+      }
+    }
     long endTime = System.currentTimeMillis();
 
     System.out.printf("Total number of clusters %d\n", clusterer.getCentroids().size());
 
-    assertEquals("Total weight not preserved", totalWeight(clusterer.getCentroids()),
-        totalWeight(syntheticData.getFirst()), 1e-9);
+    assertEquals("Total weight not preserved", totalWeight(syntheticData.getFirst()),
+        totalWeight(clusterer.getCentroids()), 1e-9);
 
     // and verify that each corner of the cube has a centroid very nearby
     for (Vector mean : syntheticData.getSecond()) {
@@ -102,6 +116,10 @@ public class StreamingKMeansTest {
       cornerWeights[((Centroid)closest.getValue()).getIndex()] += centroid.getWeight();
     }
     int expectedNumPoints = NUM_DATA_POINTS / (1 << NUM_DIMENSIONS);
+    for (double v : cornerWeights) {
+      System.out.printf("%f ", v);
+    }
+    System.out.println();
     for (double v : cornerWeights) {
       assertEquals(expectedNumPoints, v, 0);
     }

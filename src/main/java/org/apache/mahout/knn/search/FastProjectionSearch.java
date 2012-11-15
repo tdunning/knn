@@ -1,338 +1,245 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package org.apache.mahout.knn.search;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.AbstractIterator;
-import com.google.common.collect.HashMultiset;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Multiset;
-import com.google.common.collect.Sets;
+import com.google.common.collect.*;
 import org.apache.mahout.common.distance.DistanceMeasure;
 import org.apache.mahout.math.DenseVector;
 import org.apache.mahout.math.Vector;
-import org.apache.mahout.math.WeightedVector;
-import org.apache.mahout.math.function.DoubleFunction;
-import org.apache.mahout.math.function.Functions;
 import org.apache.mahout.math.random.WeightedThing;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
- * Does approximate nearest neighbor dudes search by projecting the referenceVectors.
+ * Does approximate nearest neighbor search by projecting the vectors similar to ProjectionSearch.
  * The main difference between this class and the ProjectionSearch is the use of sorted arrays
  * instead of binary search trees to implement the sets of scalar projections.
  *
- * Instead of taking log n time to add a vector to each of the vectors,
- * the pending additions are kept separate and are searched using a brute search. When there are
- * "enough" pending additions, they're committed into the main pool of vectors.
+ * Instead of taking log n time to add a vector to each of the vectors, * the pending additions are
+ * kept separate and are searched using a brute search. When there are "enough" pending additions,
+ * they're committed into the main pool of vectors.
  */
-public class FastProjectionSearch extends UpdatableSearcher implements Iterable<Vector> {
-  /**
-   * The actual vectors.
-   * The referenceVectors are the ones already in the sorted arrays, searched using binary search
-   * on the scalar projections.
-   * The pendingReferenceVectors are the recently added ones, that are not immediately added.
-   */
-  private List<Vector> referenceVectors = Lists.newArrayList();
-  private List<Vector> pendingReferenceVectors = Lists.newArrayList();
+public class FastProjectionSearch extends UpdatableSearcher {
+  // The list of vectors that have not yet been projected (that are pending).
+  private List<Vector> pendingAdditions = Lists.newArrayList();
 
-  /**
-   * The projection basis.
-   */
-  private List<Vector> basisVectors;
+  // The list of basis vectors. Populated when the first vector's dimension is know by calling
+  // initialize once.
+  private List<Vector> basisVectors = null;
 
-  // how many candidates per projection to examine
+  // The list of sorted lists of scalar projections. The outer list has one entry for each basis
+  // vector that all the other vectors will be projected on.
+  // For each basis vector, the inner list has an entry for each vector that has been projected.
+  // These entries are WeightedThing<Vector> where the weight is the value of the scalar
+  // projection and the value is the vector begin referred to.
+  private List<List<WeightedThing<Vector>>> scalarProjections;
+
+  // The number of projection used for approximating the distance.
+  private int numProjections;
+
+  // The number of elements to keep on both sides of the closest estimated distance as possible
+  // candidates for the best actual distance.
   private int searchSize;
 
-  // these store the projections of each vector against each basisVectors vector
-  private List<double[]> projections = Lists.newArrayList();
-  // and these link back to the original referenceVectors.
-  private List<int[]> vectorIds = Lists.newArrayList();
-
-  // dirty indicates that we have pending insertions
-  private boolean dirty = false;
-  // this keeps track of pending deletions that will get scrubbed away next time
-  // we do a full index
-  private int pendingRemovals = 0;
-
-  private int numProjections;
+  // Initially, the dimension of the vectors searched by this searcher is unknown. After adding
+  // the first vector, the basis will be initialized. This marks whether initialization has
+  // happened or not so we only do it once.
   private boolean initialized = false;
 
-  public FastProjectionSearch(DistanceMeasure distanceMeasure,  int numProjections, int searchSize) {
+  // Whether the iterator returned from the searcher was used to modify any of the vectors. This
+  // flag must be set manually by calling setDirty after said modification so the internal
+  // structures can be updated.
+  private boolean dirty = false;
+
+  // Removing vectors from the searcher is done lazily to avoid the linear time cost of removing
+  // elements from an array. This member keeps track of the number of removed vectors (marked as
+  // "impossible" values in the array) so they can be removed when updating the structure.
+  private int numPendingRemovals = 0;
+
+  private final static double ADDITION_THRESHOLD = 0.05;
+  private final static double REMOVAL_THRESHOLD = 0.02;
+
+  public FastProjectionSearch(DistanceMeasure distanceMeasure, int numProjections, int searchSize) {
     super(distanceMeasure);
     Preconditions.checkArgument(numProjections > 0 && numProjections < 100,
         "Unreasonable value for number of projections");
-    this.searchSize = searchSize;
     this.numProjections = numProjections;
-    basisVectors = null; // ProjectionSearch.generateBasis(numDimensions, numProjections);
-
+    this.searchSize = searchSize;
+    scalarProjections = Lists.newArrayListWithCapacity(numProjections);
+    for (int i = 0; i < numProjections; ++i) {
+      scalarProjections.add(Lists.<WeightedThing<Vector>>newArrayList());
+    }
   }
 
   private void initialize(int numDimensions) {
-    if (initialized)
+    if (initialized) {
       return;
+    }
+    basisVectors = ProjectionSearch.generateBasis(numDimensions, numProjections);
     initialized = true;
-   ProjectionSearch.generateBasis(numDimensions, numProjections);
   }
 
   /**
-   * Adds a vector into the set of projections for later searching.
-   *
-   * @param v     The vector to add.
+   * Add a new Vector to the Searcher that will be checked when getting
+   * the nearest neighbors.
+   * <p/>
+   * The vector IS NOT CLONED. Do not modify the vector externally otherwise the internal
+   * Searcher data structures could be invalidated.
    */
   @Override
   public void add(Vector v) {
     initialize(v.size());
-    pendingReferenceVectors.add(v);
-  }
-
-  @Override
-  public boolean remove(Vector vector, double epsilon) {
-    boolean found = false;
-
-    final double epsilon2 = epsilon * epsilon;
-    Set<Integer> candidates = Sets.newHashSet();
-    for (int i = 0; i < projections.size(); i++) {
-      final double projection = basisVectors.get(i).dot(vector);
-      int r = Arrays.binarySearch(projections.get(i), projection);
-      if (r < 0) {
-        r = -(r + 1);
-      }
-      while (r >= 0 && projections.get(i)[r] >= projection - epsilon2) {
-        r--;
-      }
-      while (r < referenceVectors.size() && projections.get(i)[r] <= projection + epsilon2) {
-        candidates.add(vectorIds.get(i)[r]);
-        r++;
-      }
-    }
-
-    for (Integer id : candidates) {
-      if (id >= 0 && vector.getDistanceSquared(referenceVectors.get(id)) < epsilon2) {
-        // for all real matches, we just scrub away the id and take the storage
-        // hit
-        found = true;
-        pendingRemovals++;
-
-        // first set vector to something a vector that can't match
-        Vector bogus = referenceVectors.get(id).like();
-        bogus.assign(Double.NaN);
-        referenceVectors.set(id, new WeightedVector(bogus, 0, -1));
-
-        // then hide the tracks
-        for (int[] idList : vectorIds) {
-          for (int i = 0; i < idList.length; i++) {
-            if (idList[i] == id) {
-              idList[i] = -1;
-            }
-          }
-        }
-      }
-    }
-
-    if (pendingReferenceVectors.size() > 0) {
-      // copy just live vectors
-      List<Vector> newAdditions = Lists.newArrayList();
-      for (Vector v : pendingReferenceVectors) {
-        if (vector.getDistanceSquared(v) < epsilon2) {
-          found = true;
-        } else {
-          newAdditions.add(v);
-        }
-      }
-      pendingReferenceVectors = newAdditions;
-    }
-
-    return found;
+    pendingAdditions.add(v);
   }
 
   /**
-   * Returns the number of vectors that we can search
-   *
-   * @return The number of vectors added to the search so far.
+   * Returns the number of WeightedVectors being searched for nearest neighbors.
    */
+  @Override
   public int size() {
-    return referenceVectors.size() + pendingReferenceVectors.size() - pendingRemovals;
+    return pendingAdditions.size() + scalarProjections.get(0).size() - numPendingRemovals;
   }
 
-
-  public List<WeightedThing<Vector>> search(final Vector query, int limit) {
+  /**
+   * When querying the Searcher for the closest vectors, a list of WeightedThing<Vector>s is
+   * returned. The value of the WeightedThing is the neighbor and the weight is the
+   * the distance (calculated by some metric - see a concrete implementation) between the query
+   * and neighbor.
+   * The actual type of vector in the pair is the same as the vector added to the Searcher.
+   */
+  @Override
+  public List<WeightedThing<Vector>> search(Vector query, int limit) {
     reindex();
 
-    Multiset<Integer> candidateIds = HashMultiset.create();
-    for (int i = 0; i < basisVectors.size(); i++) {
+    HashSet<Vector> candidates = Sets.newHashSet();
+    for (int i = 0; i < basisVectors.size(); ++i) {
       final double projection = basisVectors.get(i).dot(query);
-      int r = Arrays.binarySearch(projections.get(i), projection);
-      if (r < 0) {
-        r = -(r + 1);
+      List<WeightedThing<Vector>> currProjections = scalarProjections.get(i);
+      int middle = Collections.binarySearch(currProjections,
+          new WeightedThing<Vector>(null, projection));
+      if (middle < 0) {
+        middle = -(middle + 1);
       }
-      int start = r - searchSize;
-      int end = r + searchSize;
-      if (start < 0) {
-        start = 0;
-      }
-      if (end > referenceVectors.size()) {
-        end = referenceVectors.size();
-      }
-      for (int j = start; j < end; j++) {
-        candidateIds.add(vectorIds.get(i)[j]);
-      }
-    }
-
-    // if searchSize * vectors.size() is small enough not to cause much memory
-    // pressure, this is probably just as fast as a priority queue here.
-    List<WeightedThing<Vector>> top = Lists.newArrayList();
-    for (int candidateId : candidateIds.elementSet()) {
-      if (candidateId != -1) {
-        final Vector v = referenceVectors.get(candidateId);
-        top.add(new WeightedThing<Vector>(v, distanceMeasure.distance(query, v)));
-      }
-    }
-
-    Collections.sort(top);
-
-    // may have to search the last few linearly
-    if (pendingReferenceVectors.size() > 0) {
-      int lastIndex = top.size();
-      if (lastIndex >= limit) {
-       lastIndex = limit - 1;
-       top = top.subList(0, lastIndex + 1);
-      }
-      double largestDistance = top.get(lastIndex).getWeight();
-
-      for (Vector v : pendingReferenceVectors) {
-        double distance = distanceMeasure.distance(query, v);
-        if (distance < largestDistance) {
-          top.add(new WeightedThing<Vector>(v, distance));
+      for (int j = Math.max(0, middle - searchSize);
+           j < Math.min(currProjections.size(), middle + searchSize + 1); ++j) {
+        if (currProjections.get(j).getValue() == null) {
+          continue;
         }
+        candidates.add(currProjections.get(j).getValue());
       }
-      Collections.sort(top);
     }
+
+    List<WeightedThing<Vector>> top =
+        Lists.newArrayListWithCapacity(candidates.size() + pendingAdditions.size());
+    for (Vector candidate : Iterables.concat(candidates, pendingAdditions)) {
+      top.add(new WeightedThing<Vector>(candidate, distanceMeasure.distance(candidate, query)));
+    }
+    Collections.sort(top);
 
     return top.subList(0, Math.min(top.size(), limit));
   }
 
-  /**
-   * If there are pending additions, we need to rebuild the indexes from
-   * scratch.  Deletions don't require this, but we get rid of them in passing.
-   */
-  private void reindex() {
-    if (dirty || pendingReferenceVectors.size() > 0.05 * referenceVectors.size()
-        || pendingRemovals > 0.2 * referenceVectors.size()) {
-      referenceVectors.addAll(pendingReferenceVectors);
-      pendingReferenceVectors.clear();
-
-      // clean up pending deletions by copying to a new list
-      List<Vector> newData = Lists.newArrayList();
-      for (Vector v : referenceVectors) {
-        if (!Double.isNaN(v.getQuick(0))) {
-          newData.add(v);
-        }
-      }
-      referenceVectors = newData;
-      pendingRemovals = 0;
-
-      // build projections for all referenceVectors
-      vectorIds.clear();
-      projections.clear();
-      for (Vector u : basisVectors) {
-        List<WeightedThing<Integer>> tmp = Lists.newArrayList();
-        int id = 0;
-        for (Vector vector : referenceVectors) {
-          tmp.add(new WeightedThing<Integer>(id++, u.dot(vector)));
-        }
-        Collections.sort(tmp);
-
-        final int[] ids = new int[referenceVectors.size()];
-        vectorIds.add(ids);
-        final double[] proj = new double[referenceVectors.size()];
-        projections.add(proj);
-        int j = 0;
-        for (WeightedThing<Integer> v : tmp) {
-          ids[j] = v.getValue();
-          proj[j] = v.getWeight();
-          j++;
-        }
-      }
-      dirty = false;
-    }
-  }
-
-  /**
-   * Marks a FastProjectionSearch as dirty if you modify any of the vectors
-   * using iterators and such.
-   */
-  public void setDirty() {
-    dirty = true;
-  }
-
-  public int getSearchSize() {
-    return searchSize;
-  }
-
-  public void setSearchSize(int size) {
-    searchSize = size;
-  }
-
   @Override
-  public Iterator<Vector> iterator() {
-    final int[] index = {0};
-    return Iterators.concat(
-        new AbstractIterator<Vector>() {
-          Iterator<Vector> data =
-              FastProjectionSearch.this.referenceVectors.iterator();
+  public boolean remove(Vector v, double epsilon) {
+    WeightedThing<Vector> closestPair = search(v, 1).get(0);
+    if (distanceMeasure.distance(closestPair.getValue(), v) > epsilon) {
+      return false;
+    }
 
-          @Override
-          protected Vector computeNext() {
-            if (!data.hasNext()) {
-              return endOfData();
-            } else {
-              // get the next vector
-              Vector v = data.next();
-              // but skip over deleted vectors
-              while (Double.isNaN(v.get(0)) && data.hasNext()) {
-                v = data.next();
-              }
-              // did we get a good one?
-              if (!Double.isNaN(v.get(0))) {
-                return v;
-              } else {
-                // no... ran out before we found a valid vector
-                return endOfData();
-              }
-            }
+    boolean isProjected = true;
+    for (int i = 0; i < basisVectors.size(); ++i) {
+      final double projection = basisVectors.get(i).dot(v);
+      List<WeightedThing<Vector>> currProjections = scalarProjections.get(i);
+      int middle = Collections.binarySearch(currProjections,
+          new WeightedThing<Vector>(null, projection));
+      if (middle < 0) {
+        isProjected = false;
+        break;
+      }
+      double oldWeight = currProjections.get(middle).getWeight();
+      scalarProjections.get(i).set(middle, new WeightedThing<Vector>(null, oldWeight));
+    }
+    if (isProjected) {
+      ++numPendingRemovals;
+      return true;
+    }
+
+    for (int i = 0; i < pendingAdditions.size(); ++i) {
+      if (distanceMeasure.distance(v, pendingAdditions.get(i)) < epsilon) {
+        pendingAdditions.remove(i);
+        break;
+      }
+    }
+    return true;
+  }
+
+  private void reindex() {
+    int numProjected = scalarProjections.get(0).size();
+    if (dirty || pendingAdditions.size() > ADDITION_THRESHOLD * numProjected ||
+        numPendingRemovals > REMOVAL_THRESHOLD * numProjected) {
+      // Project every pending vector onto every basis vector.
+      for (Vector pending : pendingAdditions) {
+        for (int i = 0; i < numProjections; ++i) {
+          final double projection = basisVectors.get(i).dot(pending);
+          scalarProjections.get(i).add(new WeightedThing<Vector>(pending, projection));
+        }
+      }
+      pendingAdditions.clear();
+      // For each basis vector, sort the resulting list (for binary search) and remove the number
+      // of pending removals (it's the same for every basis vector) at the end (the weights are
+      // set to Double.POSITIVE_INFINITY when removing).
+      for (int i = 0; i < numProjections; ++i) {
+        List<WeightedThing<Vector>> currProjections = scalarProjections.get(i);
+        for (WeightedThing<Vector> v : currProjections) {
+          if (v.getValue() == null) {
+            v.setWeight(Double.POSITIVE_INFINITY);
           }
-        },
-        pendingReferenceVectors.iterator()
-    );
+        }
+        Collections.sort(currProjections);
+        for (int j = 0; j < numPendingRemovals; ++j) {
+          currProjections.remove(currProjections.size() - 1);
+        }
+      }
+      numPendingRemovals = 0;
+    }
   }
 
   @Override
   public void clear() {
-    referenceVectors.clear();
-    vectorIds.clear();
-    projections.clear();
+    pendingAdditions.clear();
+    for (int i = 0; i < numProjections; ++i) {
+      scalarProjections.get(i).clear();
+    }
+    numPendingRemovals = 0;
     dirty = false;
+  }
+
+  @Override
+  public Iterator<Vector> iterator() {
+    return Iterators.concat(new AbstractIterator<Vector>() {
+          Iterator<WeightedThing<Vector>> data = scalarProjections.get(0).iterator();
+          @Override
+          protected Vector computeNext() {
+            WeightedThing<Vector> next = null;
+            do {
+              if (!data.hasNext()) {
+                return endOfData();
+              }
+              next = data.next();
+              if (next.getValue() != null) {
+                return next.getValue();
+              }
+            } while (true);
+          }
+        },
+        pendingAdditions.iterator());
+  }
+
+  /**
+   * When modifying an element of the searcher through the iterator,
+   * the user MUST CALL setDirty() to update the internal data structures. Otherwise,
+   * the internal order of the vectors will change and future results might be wrong.
+   */
+  public void setDirty() {
+    dirty = true;
   }
 }

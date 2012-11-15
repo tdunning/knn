@@ -200,25 +200,29 @@ public class StreamingKMeansTestMR {
     int numPoints = 1000;
     Pair<List<Centroid>, List<Centroid>> data =
         DataUtils.sampleMultiNormalHypercube(numDimensions, numPoints);
+    /*
     for (Centroid point : data.getFirst()) {
       mapDriver.addInput(new IntWritable(), new CentroidWritable(point));
     }
-    BruteSearch searcher = new BruteSearch(new EuclideanDistanceMeasure());
-    int i = 0;
-    for (Vector mean : data.getSecond()) {
-      searcher.add(new WeightedVector(mean, 1, i++));
-    }
-    assertThat(i, equalTo(numVertices));
-    int counts[] = new int[numVertices];
     List<org.apache.hadoop.mrunit.types.Pair<IntWritable,CentroidWritable>> results = mapDriver.run();
     for (org.apache.hadoop.mrunit.types.Pair<IntWritable, CentroidWritable> result : results) {
-      WeightedThing<Vector> closest = searcher.search(result.getSecond().getCentroid(), 1).get(0);
-      assertThat(closest.getWeight(), is(Matchers.lessThan(0.05)));
-      i = ((WeightedVector)closest.getValue()).getIndex();
-      counts[i]++;
+      resultSearcher.add(result.getSecond().getCentroid());
     }
-    for (i = 0; i < numVertices; ++i) {
-      assertThat(counts[i], equalTo(numPoints / numVertices));
+    */
+    StreamingKMeans clusterer = new StreamingKMeans(new ProjectionSearch(new
+        EuclideanDistanceMeasure(), 4, 10), numVertices, DataUtils.estimateDistanceCutoff(data
+        .getFirst()));
+    for (Centroid datapoint : data.getFirst()) {
+      clusterer.cluster(datapoint);
+    }
+    BruteSearch resultSearcher = new BruteSearch(new EuclideanDistanceMeasure());
+    for (Vector centroid : clusterer.getCentroids()) {
+      resultSearcher.add(centroid);
+    }
+    int i = 0;
+    for (Vector mean : data.getSecond()) {
+      WeightedThing<Vector> closest = resultSearcher.search(mean, 1).get(0);
+      assertThat(closest.getWeight(), is(Matchers.lessThan(0.05)));
     }
   }
 

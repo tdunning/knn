@@ -47,6 +47,9 @@ public class StreamingKMeans {
   // form a new cluster.
   private double distanceCutoff = 10e-4;
 
+
+  private int numProcessedDatapoints = 0;
+
   /**
    * Calls StreamingKMeans(searcher, estimatedNumClusters, initialDistanceCutoff, 1.3, 10, 0.2).
    * @see StreamingKMeans#StreamingKMeans(org.apache.mahout.knn.search.UpdatableSearcher, int, double, double, double, double)
@@ -164,10 +167,10 @@ public class StreamingKMeans {
       // but we could potentially mutate it and so we need to make a clone.
       centroids.add(Iterables.get(datapoints, 0).clone());
       numCentroidsToSkip = 1;
+      ++numProcessedDatapoints;
     }
 
     Random rand = RandomUtils.getRandom();
-    int numProcessedDataPoints = 1;
     // To cluster, we scan the data and either add each point to the nearest group or create a new group.
     // when we get too many groups, we need to increase the threshold and rescan our current groups
     for (WeightedVector row : Iterables.skip(datapoints, numCentroidsToSkip)) {
@@ -194,14 +197,16 @@ public class StreamingKMeans {
         Centroid centroid = (Centroid)closestPair.getValue();
         // We will update the centroid by removing it from the searcher and reinserting it to
         // ensure consistency.
-        centroids.remove(centroid, 1e-7);
+        if (!centroids.remove(centroid, 1e-7)) {
+          throw new RuntimeException("Unable to remove centroid");
+        }
         centroid.update(row);
         centroids.add(centroid);
       }
 
       if (!collapseClusters && centroids.size() > estimatedNumClusters) {
         estimatedNumClusters = (int) Math.max(estimatedNumClusters,
-            clusterLogFactor * Math.log (numProcessedDataPoints));
+            clusterLogFactor * Math.log(numProcessedDatapoints));
 
         // TODO does shuffling help?
         List<Centroid> shuffled = Lists.newArrayList();
@@ -221,7 +226,9 @@ public class StreamingKMeans {
           distanceCutoff *= beta;
         }
       }
-      ++numProcessedDataPoints;
+      if (!collapseClusters) {
+        ++numProcessedDatapoints;
+      }
     }
 
     // Normally, iterating through the searcher produces Vectors,

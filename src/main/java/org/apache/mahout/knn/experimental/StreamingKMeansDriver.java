@@ -74,6 +74,7 @@ public final class StreamingKMeansDriver extends AbstractJob {
   public static final String SEARCHER_CLASS_OPTION = "searcherClass";
   public static final String NUM_PROJECTIONS_OPTION = "numProjections";
   public static final String SEARCH_SIZE_OPTION = "searchSize";
+  public static final String MAX_NUM_ITERATIONS = "maxNumIterations";
 
   private static final Logger log = LoggerFactory.getLogger(StreamingKMeansDriver.class);
 
