@@ -17,27 +17,41 @@
 
 package org.apache.mahout.knn.experimental;
 
+import com.google.common.base.Function;
+import com.google.common.collect.Iterables;
+import com.sun.istack.internal.Nullable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.mahout.clustering.iterator.ClusterWritable;
-import org.apache.mahout.knn.cluster.BallKmeans;
+import org.apache.mahout.knn.cluster.BallKMeans;
+import org.apache.mahout.math.Centroid;
+import org.apache.mahout.math.WeightedVector;
 
-public class StreamingKMeansReducer extends Reducer<IntWritable, ClusterWritable, IntWritable,
-    ClusterWritable> {
+import java.io.IOException;
+import java.util.Iterator;
 
-  private BallKmeans clusterer;
+public class StreamingKMeansReducer extends Reducer<IntWritable, CentroidWritable, IntWritable,
+    CentroidWritable> {
 
+  private BallKMeans clusterer;
   @Override
   public void setup(Context context) {
 
   }
 
   @Override
-  public void reduce(IntWritable key, Iterable<ClusterWritable> centroids, Context context) {
-  }
-
-  @Override
-  public void cleanup(Context context) {
-
+  public void reduce(IntWritable key, Iterable<CentroidWritable> centroids,
+                     Context context) throws IOException, InterruptedException {
+    clusterer = new BallKMeans(10, Iterables.transform(centroids, new Function<CentroidWritable,
+        WeightedVector>() {
+      @Override
+      public WeightedVector apply(@Nullable CentroidWritable input) {
+        return input.getCentroid();
+      }
+    }), 20);
+    Iterator<Centroid> ci = clusterer.iterator();
+    while (ci.hasNext()) {
+      Centroid centroid = ci.next();
+      context.write(new IntWritable(centroid.getIndex()), new CentroidWritable(centroid));
+    }
   }
 }
