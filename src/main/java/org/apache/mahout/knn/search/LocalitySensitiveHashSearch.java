@@ -47,11 +47,19 @@ public class LocalitySensitiveHashSearch extends UpdatableSearcher implements It
 
   private int distanceEvaluations = 0;
 
-  public LocalitySensitiveHashSearch(DistanceMeasure distanceMeasure, int numDimensions,
-                                     int searchSize) {
+  private boolean initialized = false;
+
+  public LocalitySensitiveHashSearch(DistanceMeasure distanceMeasure,  int searchSize) {
     super(distanceMeasure);
     this.searchSize = searchSize;
 
+    this.projection = null;
+  }
+
+  private void initialize(int numDimensions) {
+    if (initialized)
+      return;
+    initialized = true;
     projection = new DenseMatrix(BITS, numDimensions);
     projection.assign(new Normal(0, 1, RandomUtils.getRandom()));
   }
@@ -135,6 +143,7 @@ public class LocalitySensitiveHashSearch extends UpdatableSearcher implements It
 
   @Override
   public void add(Vector v) {
+    initialize(v.size());
     trainingVectors.add(new HashedVector(v, projection, HashedVector.INVALID_INDEX, BITMASK));
   }
 

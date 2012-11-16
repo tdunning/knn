@@ -40,6 +40,10 @@ public abstract class Searcher implements Iterable<Vector> {
     this.distanceMeasure = distanceMeasure;
   }
 
+  public DistanceMeasure getDistanceMeasure(){
+    return distanceMeasure;
+  }
+
   /**
    * Add a new Vector to the Searcher that will be checked when getting
    * the nearest neighbors.

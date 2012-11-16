@@ -17,82 +17,90 @@
 
 package org.apache.mahout.knn.cluster;
 
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
+import org.apache.mahout.knn.search.BruteSearch;
 import org.apache.mahout.math.*;
 import org.apache.mahout.math.function.Functions;
 import org.apache.mahout.math.function.VectorFunction;
 import org.apache.mahout.math.random.MultiNormal;
 import org.junit.Test;
 
+import java.util.List;
+
 import static org.junit.Assert.assertEquals;
 
-public class BallKmeansTest {
+public class BallKMeansTest {
 
-    private static final int K1 = 100;
+  private static final int K1 = 100;
 
-    @Test
-    public void testBasicClustering() {
-        Matrix data = cubishTestData(1);
+  @Test
+  public void testBasicClustering() {
+    List<? extends WeightedVector> data = cubishTestData(1);
 
-        BallKmeans r = new BallKmeans(6, data, 20);
-        for (Centroid centroid : r) {
-            for (int i = 0; i < 10; i++) {
-                System.out.printf("%10.4f", centroid.get(i));
-            }
-            System.out.printf("\n");
-        }
+    BallKMeans r = new BallKMeans(new BruteSearch(new EuclideanDistanceMeasure()), 6, 20);
+    r.cluster(data);
+    for (Centroid centroid : r) {
+      for (int i = 0; i < 10; i++) {
+        System.out.printf("%10.4f", centroid.get(i));
+      }
+      System.out.printf("\n");
+    }
+  }
+
+  @Test
+  public void testInitialization() {
+    // start with super clusterable data
+    List<? extends WeightedVector> data = cubishTestData(0.01);
+
+    // just do initialization of ball k-means.  This should drop a point into each of the clusters
+    BallKMeans r = new BallKMeans(new BruteSearch(new EuclideanDistanceMeasure()), 6, 20);
+    r.cluster(data);
+
+    // put the centroids into a matrix
+    Matrix x = new DenseMatrix(6, 5);
+    int row = 0;
+    for (Centroid c : r) {
+      x.viewRow(row).assign(c.viewPart(0, 5));
+      row++;
     }
 
-    @Test
-    public void testInitialization() {
-        // start with super clusterable data
-        Matrix data = cubishTestData(0.01);
+    // verify that each column looks right.  Should contain zeros except for a single 6.
+    final Vector columnNorms = x.aggregateColumns(new VectorFunction() {
+      @Override
+      public double apply(Vector f) {
+        // return the sum of three discrepancy measures
+        return Math.abs(f.minValue()) + Math.abs(f.maxValue() - 6) + Math.abs(f.norm(1) - 6);
+      }
+    });
+    // verify all errors are nearly zero
+    assertEquals(0, columnNorms.norm(1) / columnNorms.size(), 0.1);
 
-        // just do initialization of ball k-means.  This should drop a point into each of the clusters
-        BallKmeans r = new BallKmeans(6, data, 0);
+    // verify that the centroids are a permutation of the original ones
+    SingularValueDecomposition svd = new SingularValueDecomposition(x);
+    Vector s = svd.getS().viewDiagonal().assign(Functions.div(6));
+    assertEquals(5, s.getLengthSquared(), 0.05);
+    assertEquals(5, s.norm(1), 0.05);
+  }
 
-        // put the centroids into a matrix
-        Matrix x = new DenseMatrix(6, 5);
-        int row = 0;
-        for (Centroid c : r) {
-            x.viewRow(row).assign(c.viewPart(0, 5));
-            row++;
-        }
+  private List<? extends WeightedVector> cubishTestData(double radius) {
+    List<WeightedVector> data = Lists.newArrayListWithCapacity(K1 + 5000);
+    int row = 0;
 
-        // verify that each column looks right.  Should contain zeros except for a single 6.
-        final Vector columnNorms = x.aggregateColumns(new VectorFunction() {
-            @Override
-            public double apply(Vector f) {
-                // return the sum of three discrepancy measures
-                return Math.abs(f.minValue()) + Math.abs(f.maxValue() - 6) + Math.abs(f.norm(1) - 6);
-            }
-        });
-        // verify all errors are nearly zero
-        assertEquals(0, columnNorms.norm(1) / columnNorms.size(), 0.1);
-
-        // verify that the centroids are a permutation of the original ones
-        SingularValueDecomposition svd = new SingularValueDecomposition(x);
-        Vector s = svd.getS().viewDiagonal().assign(Functions.div(6));
-        assertEquals(5, s.getLengthSquared(), 0.05);
-        assertEquals(5, s.norm(1), 0.05);
+    MultiNormal g = new MultiNormal(radius, new ConstantVector(0, 10));
+    for (int i = 0; i < K1; i++) {
+      data.add(new WeightedVector(g.sample(), 1, row++));
     }
 
-    private Matrix cubishTestData(double radius) {
-        Matrix data = new DenseMatrix(K1 + 5000, 10);
-        int row = 0;
-
-        MultiNormal g = new MultiNormal(radius, new ConstantVector(0, 10));
-        for (int i = 0; i < K1; i++) {
-            data.viewRow(row++).assign(g.sample());
-        }
-
-        for (int i = 0; i < 5; i++) {
-            Vector m = new DenseVector(10);
-            m.set(i, i == 0 ? 6 : 6);
-            MultiNormal gx = new MultiNormal(radius, m);
-            for (int j = 0; j < 1000; j++) {
-                data.viewRow(row++).assign(gx.sample());
-            }
-        }
-        return data;
+    for (int i = 0; i < 5; i++) {
+      Vector m = new DenseVector(10);
+      m.set(i, i == 0 ? 6 : 6);
+      MultiNormal gx = new MultiNormal(radius, m);
+      for (int j = 0; j < 1000; j++) {
+        data.add(new WeightedVector(gx.sample(), 1, row++));
+      }
     }
+    return data;
+  }
 }

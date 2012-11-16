@@ -39,6 +39,6 @@ public class ProjectionSearchTest extends FastProjectionSearchTest {
 
     @Override
     public UpdatableSearcher getSearch(int n) {
-        return new ProjectionSearch(new EuclideanDistanceMeasure(), n, 4, 20);
+        return new ProjectionSearch(new EuclideanDistanceMeasure(), 4, 20);
     }
 }

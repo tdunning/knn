@@ -101,8 +101,7 @@ public class OverlapTest {
     log.warn("Reference data stored");
     log.warn("Starting add with speedup of {}", numDataVectors / (dimension * 2.0 * depth * 4.0));
 
-    Searcher sut = new FastProjectionSearch(new SquaredEuclideanDistanceMeasure(),
-        dimension, dimension * 2, depth * 4);
+    Searcher sut = new FastProjectionSearch(new SquaredEuclideanDistanceMeasure(), dimension * 2, depth * 4);
     sut.addAllMatrixSlicesAsWeightedVectors(data);
     log.warn("Added data with speedup of {}", numDataVectors / (dimension * 2.0 * depth * 4.0));
 
