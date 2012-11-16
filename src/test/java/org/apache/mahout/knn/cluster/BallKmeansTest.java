@@ -19,6 +19,8 @@ package org.apache.mahout.knn.cluster;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import org.apache.mahout.common.distance.EuclideanDistanceMeasure;
+import org.apache.mahout.knn.search.BruteSearch;
 import org.apache.mahout.math.*;
 import org.apache.mahout.math.function.Functions;
 import org.apache.mahout.math.function.VectorFunction;
@@ -35,9 +37,10 @@ public class BallKMeansTest {
 
   @Test
   public void testBasicClustering() {
-    Iterable<? extends WeightedVector> data = cubishTestData(1);
+    List<? extends WeightedVector> data = cubishTestData(1);
 
-    BallKMeans r = new BallKMeans(6, data, 20);
+    BallKMeans r = new BallKMeans(new BruteSearch(new EuclideanDistanceMeasure()), 6, 20);
+    r.cluster(data);
     for (Centroid centroid : r) {
       for (int i = 0; i < 10; i++) {
         System.out.printf("%10.4f", centroid.get(i));
@@ -49,10 +52,11 @@ public class BallKMeansTest {
   @Test
   public void testInitialization() {
     // start with super clusterable data
-    Iterable<? extends WeightedVector> data = cubishTestData(0.01);
+    List<? extends WeightedVector> data = cubishTestData(0.01);
 
     // just do initialization of ball k-means.  This should drop a point into each of the clusters
-    BallKMeans r = new BallKMeans(6, data, 0);
+    BallKMeans r = new BallKMeans(new BruteSearch(new EuclideanDistanceMeasure()), 6, 20);
+    r.cluster(data);
 
     // put the centroids into a matrix
     Matrix x = new DenseMatrix(6, 5);
@@ -80,7 +84,7 @@ public class BallKMeansTest {
     assertEquals(5, s.norm(1), 0.05);
   }
 
-  private Iterable<? extends WeightedVector> cubishTestData(double radius) {
+  private List<? extends WeightedVector> cubishTestData(double radius) {
     List<WeightedVector> data = Lists.newArrayListWithCapacity(K1 + 5000);
     int row = 0;
 
