@@ -39,7 +39,7 @@ public class LocalitySensitiveHashSearchTest {
     BruteSearch ref = new BruteSearch(distance);
     ref.addAllMatrixSlicesAsWeightedVectors(testData);
 
-    LocalitySensitiveHashSearch cut = new LocalitySensitiveHashSearch(distance, 10, 10);
+    LocalitySensitiveHashSearch cut = new LocalitySensitiveHashSearch(distance, 10);
     cut.addAllMatrixSlicesAsWeightedVectors(testData);
 
     cut.setSearchSize(200);
