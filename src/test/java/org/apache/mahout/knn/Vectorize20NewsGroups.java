@@ -17,10 +17,7 @@
 
 package org.apache.mahout.knn;
 
-import com.google.common.base.CharMatcher;
-import com.google.common.base.Charsets;
-import com.google.common.base.Predicate;
-import com.google.common.base.Splitter;
+import com.google.common.base.*;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -32,14 +29,17 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.SequenceFile;
+import org.apache.hadoop.io.Text;
 import org.apache.mahout.math.RandomAccessSparseVector;
 import org.apache.mahout.math.Vector;
 import org.apache.mahout.math.VectorWritable;
+import org.apache.mahout.math.function.Functions;
 import org.apache.mahout.vectorizer.encoders.FeatureVectorEncoder;
 import org.apache.mahout.vectorizer.encoders.StaticWordValueEncoder;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
@@ -71,31 +71,65 @@ public class Vectorize20NewsGroups {
 
   public static void main(String[] args) throws IOException {
     String weightingCode = args[0];
-    CorpusWeighting cw = CorpusWeighting.parse(weightingCode);
-
     boolean normalize = weightingCode.endsWith("c");
 
     legalHeaders = Sets.newHashSet();
-    Iterables.addAll(legalHeaders, Splitter.on(",").trimResults().split(args[1]));
+    Iterables.addAll(legalHeaders, Iterables.transform(Splitter.on(",").trimResults().split(args[1]), new Function<String, String>() {
+      @Override
+      public String apply(String s) {
+        return s.toLowerCase();
+      }
+    }));
 
     includeQuotes = Boolean.parseBoolean(args[2]);
 
+    CorpusWeighting cw = CorpusWeighting.parse(weightingCode);
+    if (cw.needCorpusWeights()) {
+      Multiset<String> wordFrequency = HashMultiset.create();
+      Set<String> documents = Sets.newHashSet();
+      for (String file : Arrays.asList(args).subList(4, args.length)) {
+        recursivelyCount(documents, wordFrequency, new File(file));
+      }
+      cw.setCorpusCounts(wordFrequency, documents.size());
+    }
+
     int dimension = Integer.parseInt(args[3]);
 
-    SequenceFile.Writer sf = SequenceFile.createWriter(FileSystem.getLocal(null), new Configuration(), new Path("output"), String.class, VectorWritable.class);
-    for (String file : Arrays.asList(args).subList(4, args.length - 4)) {
-      recursivelyVectorize(sf, new File(file), cw, normalize, dimension);
+    Configuration conf = new Configuration();
+    SequenceFile.Writer sf = SequenceFile.createWriter(FileSystem.getLocal(conf), conf, new Path("output"), Text.class, VectorWritable.class);
+    PrintWriter csv = new PrintWriter("output.csv");
+    for (String file : Arrays.asList(args).subList(4, args.length)) {
+      recursivelyVectorize(csv, sf, new File(file), cw, normalize, dimension);
+    }
+    csv.close();
+    sf.close();
+  }
+
+  private static void recursivelyCount(Set<String> documents, Multiset<String> wordFrequency, File f) throws IOException {
+    if (f.isDirectory()) {
+      for (File file : f.listFiles()) {
+        recursivelyCount(documents, wordFrequency, file);
+      }
+    } else {
+      // count each word once per document regardless of actual count
+      documents.add(f.getCanonicalPath());
+      wordFrequency.addAll(parse(f).elementSet());
     }
   }
 
-  static void recursivelyVectorize(SequenceFile.Writer sf, File f, CorpusWeighting w, boolean normalize, int dimension) throws IOException {
+  static void recursivelyVectorize(PrintWriter csv, SequenceFile.Writer sf, File f, CorpusWeighting w, boolean normalize, int dimension) throws IOException {
     if (f.isDirectory()) {
       for (File file : f.listFiles()) {
-        recursivelyVectorize(sf, file, null, false, dimension);
+        recursivelyVectorize(csv, sf, file, w, normalize, dimension);
       }
     } else {
       Vector v = vectorizeFile(f, w, normalize, dimension);
-      sf.append(f.getParentFile().getName(), new VectorWritable(v));
+      csv.printf("%s,%s", f.getParentFile().getName(), f.getName());
+      for (int i = 0; i < v.size(); i++) {
+        csv.printf(",%.5f", v.get(i));
+      }
+      csv.printf("\n");
+      sf.append(new Text(f.getParentFile().getName()), new VectorWritable(v));
     }
   }
 
@@ -111,7 +145,7 @@ public class Vectorize20NewsGroups {
       encoder.addToVector(word, w.weight(word, doc.count(word)), v);
     }
     if (normalize) {
-      return v.normalize();
+      return v.assign(Functions.div(v.norm(2)));
     } else {
       return v;
     }
@@ -128,7 +162,7 @@ public class Vectorize20NewsGroups {
         }
       })).omitEmptyStrings().trimResults();
 
-      private Pattern quotedLine = Pattern.compile("(^In article .*)|(^> .*)|(.*writes:$)|(^|>)");
+      private Pattern quotedLine = Pattern.compile("(^In article .*)|(^> .*)|(.*writes:$)|(^\\|>)");
 
       private Multiset<String> counts = HashMultiset.create();
 
@@ -140,7 +174,7 @@ public class Vectorize20NewsGroups {
 
         if (readingHeaders) {
           Iterator<String> i = header.split(line).iterator();
-          String head = i.next();
+          String head = i.next().toLowerCase();
           if (legalHeaders.contains(head)) {
             addText(counts, i.next());
           }
@@ -160,7 +194,7 @@ public class Vectorize20NewsGroups {
 
       private void addText(Multiset<String> v, String line) {
         for (String word : words.split(line)) {
-          v.add(word);
+          v.add(word.toLowerCase());
         }
       }
     });
@@ -170,7 +204,7 @@ public class Vectorize20NewsGroups {
     static Map<String, CorpusWeighting> corpusWeights = ImmutableMap.of("i", new Idf(), "x", new Unit());
 
     static CorpusWeighting parse(String code) {
-      CorpusWeighting cw = corpusWeights.get(code.substring(1, 1));
+      CorpusWeighting cw = corpusWeights.get(code.substring(1, 2));
       TermWeighting tw = TermWeighting.parse(code.substring(0, 1));
       cw.setTermWeighting(tw);
       return cw;
@@ -183,15 +217,32 @@ public class Vectorize20NewsGroups {
     }
 
     abstract double weight(String word, int count);
+
+    abstract boolean needCorpusWeights();
+
+    public void setCorpusCounts(Multiset<String> corpusCounts, int corpusSize) {
+      throw new UnsupportedOperationException("Can't add counts to a Unit weighting");
+    }
   }
 
   private static class Idf extends CorpusWeighting {
-    Multiset documentFrequency;
+    Multiset<String> documentFrequency;
     int corpusSize;
 
     @Override
     double weight(String word, int count) {
       return termWeighting.termFrequencyWeight(count) * Math.log((corpusSize + 1) / (documentFrequency.count(word) + 1));
+    }
+
+    @Override
+    boolean needCorpusWeights() {
+      return true;
+    }
+
+    @Override
+    public void setCorpusCounts(Multiset<String> corpusCounts, int corpusSize) {
+      this.documentFrequency = corpusCounts;
+      this.corpusSize = corpusSize;
     }
   }
 
@@ -200,6 +251,12 @@ public class Vectorize20NewsGroups {
     double weight(String word, int count) {
       return termWeighting.termFrequencyWeight(count);
     }
+
+    @Override
+    boolean needCorpusWeights() {
+      return false;
+    }
+
   }
 
   private static abstract class TermWeighting {
@@ -208,7 +265,7 @@ public class Vectorize20NewsGroups {
     static final TermWeighting log = new TermWeighting() {
       @Override
       double termFrequencyWeight(int count) {
-        return Math.log(count);
+        return Math.log(count + 1);
       }
     };
     static final TermWeighting linear = new TermWeighting() {

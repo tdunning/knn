@@ -80,39 +80,6 @@ public class HashedVector extends WeightedVector {
     return hash;
   }
 
-  /*
-  Implements Comparable<HashedVector> by getting a WeightedVector and checking its actual type at runtime.
-   */
-  @Override
-  public int compareTo(WeightedVector other) {
-    if (other instanceof WeightedVector)
-      return super.compareTo(other);
-    HashedVector hashedOther = (HashedVector)other;
-    if (this == hashedOther) {
-      return 0;
-    }
-    if (hash == hashedOther.getHash()) {
-      double diff = this.minus(hashedOther).norm(1);
-      if (diff < 1e-12) {
-        return 0;
-      } else {
-        for (Element element : this) {
-          int r = Double.compare(element.get(), hashedOther.get(element.index()));
-          if (r != 0) {
-            return r;
-          }
-        }
-        return 0;
-      }
-    } else {
-      if (hash > hashedOther.getHash()) {
-        return 1;
-      } else {
-        return -1;
-      }
-    }
-  }
-
   @Override
   public String toString() {
     return String.format("index=%d, hash=%08x, v=%s", getIndex(), hash, getVector());
